@@ -68,8 +68,14 @@ export default function Contact() {
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        const msg = typeof errorData.error === 'string' ? errorData.error : (errorData.error?.message || 'Failed to send email');
+        let msg = 'Failed to send email';
+        try {
+          const errorData = await response.json();
+          msg = typeof errorData.error === 'string' ? errorData.error : (errorData.error?.message || msg);
+        } catch (e) {
+          // If not JSON, use the status text
+          msg = `Server error: ${response.status} ${response.statusText}`;
+        }
         throw new Error(msg);
       }
       

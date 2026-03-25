@@ -14,19 +14,22 @@ async function startServer() {
 
   // API Route for sending emails via Resend
   app.post("/api/send-email", async (req, res) => {
+    console.log("Email request received. Body:", JSON.stringify(req.body));
     const { name, email, phone, message } = req.body;
 
-    console.log("Email request received. RESEND_API_KEY present:", !!process.env.RESEND_API_KEY);
+    console.log("RESEND_API_KEY present:", !!process.env.RESEND_API_KEY);
 
     if (!process.env.RESEND_API_KEY) {
       console.error("RESEND_API_KEY is missing");
-      return res.status(500).json({ error: "Email service not configured" });
+      return res.status(500).json({ error: "Email service not configured. Please add RESEND_API_KEY to environment variables." });
     }
 
     try {
+      console.log("Importing resend...");
       const { Resend } = await import("resend");
       const resend = new Resend(process.env.RESEND_API_KEY);
 
+      console.log("Sending email via Resend...");
       const { data, error } = await resend.emails.send({
         from: "RNE Premier <rodney@rnepremiermobilenotary.com>",
         to: ["rodney@rnepremiermobilenotary.com"],
@@ -42,14 +45,15 @@ async function startServer() {
       });
 
       if (error) {
-        console.error("Resend error:", error);
+        console.error("Resend error response:", JSON.stringify(error));
         return res.status(400).json({ error });
       }
 
+      console.log("Email sent successfully:", JSON.stringify(data));
       res.status(200).json({ success: true, data });
     } catch (error) {
       console.error("Server error sending email:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
 

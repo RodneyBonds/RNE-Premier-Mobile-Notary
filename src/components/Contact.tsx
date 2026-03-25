@@ -57,18 +57,17 @@ export default function Contact() {
       }
 
       // 2. Send Email Notification via Resend
-      try {
-        await fetch('/api/send-email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-      } catch (error) {
-        console.error('Email notification error:', error);
-        // We don't fail the whole submission if email fails, 
-        // as long as it's saved to Firestore for the admin panel.
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send email');
       }
       
       setStatus('success');
@@ -77,6 +76,7 @@ export default function Contact() {
     } catch (error) {
       console.error('Form submission error:', error);
       setStatus('error');
+      // If it's a Resend error, we'll show it in the console and the status will be 'error'
     }
   };
 

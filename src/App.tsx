@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { animate } from 'motion/react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -14,8 +15,9 @@ import ServiceArea from './components/ServiceArea';
 import Credentials from './components/Credentials';
 import Contact from './components/Contact';
 import Footer from './components/Footer';
+import Admin from './components/Admin';
 
-export default function App() {
+function HomePage() {
   const mainRef = useRef<HTMLElement>(null);
   const animationRef = useRef<any>(null);
   const previousYRef = useRef<number>(0);
@@ -122,5 +124,16 @@ export default function App() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/admin" element={<Admin />} />
+      </Routes>
+    </Router>
   );
 }

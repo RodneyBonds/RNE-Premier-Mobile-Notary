@@ -1,8 +1,73 @@
-import React from 'react';
-import { motion } from 'motion/react';
-import { Send } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Send, CheckCircle2, X } from 'lucide-react';
+import { db } from '../firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: any;
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: 'anonymous', // For contact form
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 export default function Contact() {
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', message: '' });
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [showModal, setShowModal] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (status === 'success') return;
+    
+    setStatus('submitting');
+    try {
+      // Save to Firestore
+      const path = 'messages';
+      try {
+        await addDoc(collection(db, path), {
+          ...formData,
+          createdAt: serverTimestamp(),
+          status: 'unread'
+        });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, path);
+      }
+
+      // Also send to FormSubmit (optional fallback, but user asked for admin panel)
+      // For now, let's just use Firestore as the primary source for the admin panel.
+      
+      setStatus('success');
+      setShowModal(true);
+      setFormData({ name: '', phone: '', email: '', message: '' });
+    } catch (error) {
+      console.error('Form submission error:', error);
+      setStatus('error');
+    }
+  };
+
   return (
     <section id="contact" className="py-32 bg-[#050B14] rounded-t-[3rem] -mt-12 relative z-20 overflow-hidden">
       {/* Background Glow */}
@@ -79,16 +144,7 @@ export default function Contact() {
 
             <div className="relative bg-white/[0.02] border border-white/10 p-8 md:p-10 rounded-3xl backdrop-blur-sm group-hover:border-accent-gold/30 transition-colors duration-500 shadow-2xl group-hover:shadow-[0_0_40px_rgba(212,175,55,0.15)]">
               <h3 className="text-2xl font-bold text-white mb-8">Get in touch</h3>
-              <form 
-                className="space-y-6" 
-                action="https://formsubmit.co/rodney@rnepremiermobilenotary.com" 
-                method="POST"
-              >
-                {/* FormSubmit Configuration */}
-                <input type="hidden" name="_subject" value="New Contact Form Submission - RNE Premier" />
-                <input type="hidden" name="_template" value="table" />
-                <input type="hidden" name="_captcha" value="false" />
-
+              <form className="space-y-6" onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label htmlFor="name" className="text-sm font-medium text-white/60">Full Name</label>
@@ -97,7 +153,10 @@ export default function Contact() {
                       id="name"
                       name="name"
                       required
-                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold focus:shadow-[0_0_15px_rgba(212,175,55,0.2)] outline-none transition-all placeholder:text-white/20"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      disabled={status === 'success' || status === 'submitting'}
+                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold focus:shadow-[0_0_15px_rgba(212,175,55,0.2)] outline-none transition-all placeholder:text-white/20 disabled:opacity-50"
                       placeholder="John Doe"
                     />
                   </div>
@@ -108,7 +167,10 @@ export default function Contact() {
                       id="phone"
                       name="phone"
                       required
-                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold focus:shadow-[0_0_15px_rgba(212,175,55,0.2)] outline-none transition-all placeholder:text-white/20"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      disabled={status === 'success' || status === 'submitting'}
+                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold focus:shadow-[0_0_15px_rgba(212,175,55,0.2)] outline-none transition-all placeholder:text-white/20 disabled:opacity-50"
                       placeholder="(480) 555-0123"
                     />
                   </div>
@@ -121,7 +183,10 @@ export default function Contact() {
                     id="email"
                     name="email"
                     required
-                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold focus:shadow-[0_0_15px_rgba(212,175,55,0.2)] outline-none transition-all placeholder:text-white/20"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    disabled={status === 'success' || status === 'submitting'}
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold focus:shadow-[0_0_15px_rgba(212,175,55,0.2)] outline-none transition-all placeholder:text-white/20 disabled:opacity-50"
                     placeholder="john@example.com"
                   />
                 </div>
@@ -133,20 +198,78 @@ export default function Contact() {
                     name="message"
                     rows={4}
                     required
-                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold focus:shadow-[0_0_15px_rgba(212,175,55,0.2)] outline-none transition-all resize-none placeholder:text-white/20"
+                    value={formData.message}
+                    onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                    disabled={status === 'success' || status === 'submitting'}
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold focus:shadow-[0_0_15px_rgba(212,175,55,0.2)] outline-none transition-all resize-none placeholder:text-white/20 disabled:opacity-50"
                     placeholder="How can we help you?"
                   ></textarea>
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full bg-accent-gold hover:bg-accent-gold-dark text-[#050B14] font-semibold px-8 py-4 rounded-xl transition-all duration-300 shadow-lg shadow-accent-gold/20 hover:shadow-[0_0_30px_rgba(212,175,55,0.4)] hover:-translate-y-1 flex items-center justify-center gap-2 group/btn"
+                  disabled={status === 'submitting' || status === 'success'}
+                  className={`w-full font-semibold px-8 py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group/btn ${
+                    status === 'success' 
+                      ? 'bg-gray-600 text-white/50 cursor-not-allowed' 
+                      : 'bg-accent-gold hover:bg-accent-gold-dark text-[#050B14] shadow-lg shadow-accent-gold/20 hover:shadow-[0_0_30px_rgba(212,175,55,0.4)] hover:-translate-y-1'
+                  }`}
                 >
-                  <Send className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
-                  Send Message
+                  {status === 'success' ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5" />
+                      SUBMITTED
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                      {status === 'submitting' ? 'SENDING...' : 'SEND MESSAGE'}
+                    </>
+                  )}
                 </button>
+                {status === 'error' && <p className="text-red-500 text-center text-sm">Something went wrong. Please try again.</p>}
               </form>
             </div>
+
+            {/* Success Modal */}
+            <AnimatePresence>
+              {showModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    className="bg-[#0A111E] border border-accent-gold/30 p-8 rounded-3xl max-w-md w-full shadow-[0_0_50px_rgba(212,175,55,0.15)] relative overflow-hidden"
+                  >
+                    {/* Decorative background element */}
+                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-accent-gold/10 rounded-full blur-3xl"></div>
+                    
+                    <button 
+                      onClick={() => setShowModal(false)}
+                      className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-20 h-20 bg-accent-gold/20 rounded-full flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(212,175,55,0.2)]">
+                        <CheckCircle2 className="w-10 h-10 text-accent-gold" />
+                      </div>
+                      <h4 className="text-2xl font-bold text-white mb-3">Message Received!</h4>
+                      <p className="text-white/60 mb-8">
+                        Thank you for reaching out to RNE Premier. We've received your message and will get back to you as soon as possible.
+                      </p>
+                      <button
+                        onClick={() => setShowModal(false)}
+                        className="w-full bg-accent-gold hover:bg-accent-gold-dark text-[#050B14] font-bold py-4 rounded-xl transition-all duration-300"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </div>
       </div>

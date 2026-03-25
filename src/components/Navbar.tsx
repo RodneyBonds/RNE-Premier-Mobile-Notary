@@ -22,12 +22,12 @@ export default function Navbar() {
   ];
 
   return (
-    <header className="fixed top-6 left-1/2 -translate-x-1/2 w-[95%] max-w-7xl z-50">
+    <header className="fixed top-4 left-1/2 -translate-x-1/2 w-[95%] max-w-7xl z-50">
       <motion.div 
         initial={false}
         animate={{
-          paddingTop: isScrolled ? "0.75rem" : "1.25rem",
-          paddingBottom: isScrolled ? "0.75rem" : "1.25rem",
+          paddingTop: isScrolled ? "0.4rem" : "0.6rem",
+          paddingBottom: isScrolled ? "0.4rem" : "0.6rem",
           backgroundColor: isScrolled ? "rgba(255, 255, 255, 0.9)" : "rgba(255, 255, 255, 1)",
           backdropFilter: isScrolled ? "blur(12px)" : "blur(0px)",
           boxShadow: isScrolled ? "0 10px 40px -10px rgba(0,0,0,0.15)" : "0 8px 30px rgba(0,0,0,0.12)",
@@ -39,15 +39,15 @@ export default function Navbar() {
         <a href="#" className="flex items-center gap-3 shrink-0">
           <motion.img 
             initial={false}
-            animate={{ height: isScrolled ? "2.5rem" : "3.5rem" }}
+            animate={{ height: isScrolled ? "2rem" : "2.75rem" }}
             transition={{ duration: 0.4, ease: "easeInOut" }}
             src="https://i.imgur.com/wXlz80g.png" 
             alt="RNE Premier Mobile Notary" 
             className="w-auto"
             referrerPolicy="no-referrer"
           />
-          <span className="font-bold text-lg md:text-xl tracking-tight text-black hidden sm:block whitespace-nowrap">
-            RNE Premier
+          <span className="font-bold text-base md:text-lg tracking-tight text-black hidden sm:block whitespace-nowrap">
+            RNE Premier Mobile Notary
           </span>
         </a>
 

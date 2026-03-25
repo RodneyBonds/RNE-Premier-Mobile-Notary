@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 async function startServer() {
+  console.log("Starting server...");
   const app = express();
   const PORT = 3000;
 
@@ -13,8 +14,9 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true }));
 
   // API Route for sending emails via Resend
-  app.post("/api/send-email", async (req, res) => {
-    console.log("Email request received. Body:", JSON.stringify(req.body));
+  app.post(["/api/send-email", "/api/send-email/"], async (req, res) => {
+    console.log(`POST ${req.url} request received`);
+    console.log("Body:", JSON.stringify(req.body));
     const { name, email, phone, message } = req.body;
 
     console.log("RESEND_API_KEY present:", !!process.env.RESEND_API_KEY);
@@ -55,6 +57,16 @@ async function startServer() {
       console.error("Server error sending email:", error);
       res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
+  });
+
+  // Add a health check route to verify API is working
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", message: "API is alive" });
+  });
+
+  // Catch-all for API routes
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ error: `API route ${req.method} ${req.url} not found` });
   });
 
   // Vite middleware for development

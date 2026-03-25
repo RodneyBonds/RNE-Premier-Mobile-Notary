@@ -2,6 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import dotenv from "dotenv";
+import cors from "cors";
 
 dotenv.config();
 
@@ -10,16 +11,15 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  app.use(cors());
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
   // API Route for sending emails via Resend
-  app.post(["/api/send-email", "/api/send-email/"], async (req, res) => {
-    console.log(`POST ${req.url} request received`);
+  app.post("/api/contact", async (req, res) => {
+    console.log(`POST /api/contact request received`);
     console.log("Body:", JSON.stringify(req.body));
     const { name, email, phone, message } = req.body;
-
-    console.log("RESEND_API_KEY present:", !!process.env.RESEND_API_KEY);
 
     if (!process.env.RESEND_API_KEY) {
       console.error("RESEND_API_KEY is missing");
@@ -27,11 +27,9 @@ async function startServer() {
     }
 
     try {
-      console.log("Importing resend...");
       const { Resend } = await import("resend");
       const resend = new Resend(process.env.RESEND_API_KEY);
 
-      console.log("Sending email via Resend...");
       const { data, error } = await resend.emails.send({
         from: "RNE Premier <rodney@rnepremiermobilenotary.com>",
         to: ["rodney@rnepremiermobilenotary.com"],
@@ -57,6 +55,16 @@ async function startServer() {
       console.error("Server error sending email:", error);
       res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
+  });
+
+  // Handle preflight requests
+  app.options("/api/contact", (req, res) => {
+    res.status(204).end();
+  });
+
+  // Also add a GET handler to debug 405 errors
+  app.get("/api/contact", (req, res) => {
+    res.status(200).json({ message: "Contact API is reachable via GET. Use POST for submissions." });
   });
 
   // Add a health check route to verify API is working

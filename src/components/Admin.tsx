@@ -12,12 +12,13 @@ import {
   Reply, 
   Trash2,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Lock,
+  AlertCircle
 } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { 
-  signInWithPopup, 
-  GoogleAuthProvider, 
+  signInWithEmailAndPassword,
   onAuthStateChanged, 
   signOut,
   User as FirebaseUser
@@ -50,22 +51,36 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  
+  // Login states
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
         // Check if user is admin
-        // For simplicity, we check against the hardcoded admin email or a user document
         const userDocRef = doc(db, 'users', currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        
-        if (userDoc.exists() && userDoc.data().role === 'admin') {
-          setIsAdmin(true);
-        } else if (currentUser.email === 'Rodbonds1169@gmail.com') {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
+        try {
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists() && userDoc.data().role === 'admin') {
+            setIsAdmin(true);
+          } else if (currentUser.email === 'Rodbonds1169@gmail.com') {
+            // Fallback for the primary admin
+            setIsAdmin(true);
+          } else {
+            setIsAdmin(false);
+          }
+        } catch (e) {
+          // If we can't read the user doc, check if it's the hardcoded admin
+          if (currentUser.email === 'Rodbonds1169@gmail.com') {
+            setIsAdmin(true);
+          } else {
+            setIsAdmin(false);
+          }
         }
       } else {
         setIsAdmin(false);
@@ -85,17 +100,31 @@ export default function Admin() {
           ...doc.data()
         })) as Message[];
         setMessages(msgs);
+      }, (error) => {
+        console.error("Firestore error:", error);
       });
       return () => unsubscribe();
     }
   }, [isAdmin]);
 
-  const handleLogin = async () => {
-    const provider = new GoogleAuthProvider();
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    setIsLoggingIn(true);
+    
     try {
-      await signInWithPopup(auth, provider);
-    } catch (error) {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error: any) {
       console.error('Login error:', error);
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        setLoginError('Invalid email or password.');
+      } else if (error.code === 'auth/too-many-requests') {
+        setLoginError('Too many failed attempts. Please try again later.');
+      } else {
+        setLoginError('An error occurred. Please try again.');
+      }
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -134,26 +163,85 @@ export default function Admin() {
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full bg-white/[0.02] border border-white/10 p-12 rounded-[2rem] backdrop-blur-xl text-center"
+          className="max-w-md w-full bg-white/[0.02] border border-white/10 p-8 md:p-12 rounded-[2rem] backdrop-blur-xl"
         >
-          <div className="w-20 h-20 bg-accent-gold/20 rounded-full flex items-center justify-center mx-auto mb-8">
-            <ShieldCheck className="w-10 h-10 text-accent-gold" />
-          </div>
-          <h1 className="text-3xl font-bold text-white mb-4">Admin Access</h1>
-          <p className="text-white/60 mb-10">
-            Please sign in with an authorized account to access the RNE Premier dashboard.
-          </p>
-          <button
-            onClick={handleLogin}
-            className="w-full bg-accent-gold hover:bg-accent-gold-dark text-[#050B14] font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-accent-gold/20"
-          >
-            <LogIn className="w-5 h-5" />
-            Sign in with Google
-          </button>
-          {!isAdmin && user && (
-            <p className="mt-6 text-red-400 text-sm">
-              Your account ({user.email}) is not authorized for admin access.
+          <div className="text-center mb-10">
+            <div className="w-20 h-20 bg-accent-gold/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <ShieldCheck className="w-10 h-10 text-accent-gold" />
+            </div>
+            <h1 className="text-3xl font-bold text-white mb-2">Admin Login</h1>
+            <p className="text-white/40 text-sm">
+              Enter your credentials to access the dashboard
             </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-widest text-white/40 ml-1">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:border-accent-gold outline-none transition-all"
+                  placeholder="admin@example.com"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-widest text-white/40 ml-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20" />
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:border-accent-gold outline-none transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+
+            {loginError && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 text-red-400 text-sm bg-red-400/10 p-4 rounded-xl border border-red-400/20"
+              >
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {loginError}
+              </motion.div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoggingIn}
+              className="w-full bg-accent-gold hover:bg-accent-gold-dark text-[#050B14] font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-accent-gold/20 disabled:opacity-50"
+            >
+              {isLoggingIn ? (
+                <div className="w-5 h-5 border-2 border-[#050B14] border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <LogIn className="w-5 h-5" />
+                  Sign In
+                </>
+              )}
+            </button>
+          </form>
+
+          {!isAdmin && user && (
+            <div className="mt-8 text-center">
+              <p className="text-red-400 text-sm mb-4">
+                Access denied. Your account is not authorized.
+              </p>
+              <button onClick={handleLogout} className="text-white/40 hover:text-white text-sm underline">
+                Sign out and try another account
+              </button>
+            </div>
           )}
         </motion.div>
       </div>

@@ -25,7 +25,7 @@ async function startServer() {
     try {
       await resend.emails.send({
         from: "onboarding@resend.dev", // Use a verified domain in production
-        to: "Rodbonds1169@gmail.com",
+        to: "rodney@rnepremiermobilenotary.com",
         subject: "New Contact Form Submission",
         text: `Name: ${name}\nPhone: ${phone}\nEmail: ${email}\nMessage: ${message}`,
       });

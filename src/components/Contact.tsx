@@ -146,6 +146,7 @@ export default function Contact() {
               <p className="text-accent-gold font-medium pt-4 text-xl">
                 We simplify the process. We come to you.
               </p>
+              
             </motion.div>
           </div>
 

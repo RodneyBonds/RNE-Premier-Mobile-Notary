@@ -25,6 +25,21 @@ export default function Footer() {
             <p className="text-sm leading-relaxed max-w-xs">
               Fast, reliable, and professional mobile notary services in Scottsdale, Phoenix, and throughout Maricopa County. We come to you.
             </p>
+            <div className="pt-4">
+              <a 
+                href="https://www.bbb.org/us/az/scottsdale/profile/mobile-notary/rne-premier-mobile-notary-1126-1000167036/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-block transition-all hover:opacity-80"
+              >
+                <img 
+                  src="https://i.imgur.com/5rXl8kw.png" 
+                  alt="BBB Accredited Business" 
+                  className="h-12 w-auto"
+                  referrerPolicy="no-referrer"
+                />
+              </a>
+            </div>
           </div>
 
           {/* Quick Links */}

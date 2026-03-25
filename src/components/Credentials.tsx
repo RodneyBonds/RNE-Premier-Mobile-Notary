@@ -93,16 +93,32 @@ export default function Credentials() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="mt-16 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-sm font-medium text-white/40"
+          className="mt-16 flex flex-col items-center justify-center gap-8"
         >
-          <div className="flex items-center gap-2 group cursor-default">
-            <span className="w-2 h-2 rounded-full bg-accent-gold group-hover:shadow-[0_0_10px_rgba(212,175,55,0.8)] transition-shadow"></span>
-            Commission Number: <span className="text-white/80 group-hover:text-white transition-colors">691790</span>
-          </div>
-          <div className="hidden sm:block w-px h-4 bg-white/10"></div>
-          <div className="flex items-center gap-2 group cursor-default">
-            <span className="w-2 h-2 rounded-full bg-accent-gold-dark group-hover:shadow-[0_0_10px_rgba(212,175,55,0.8)] transition-shadow"></span>
-            Expiration Date: <span className="text-white/80 group-hover:text-white transition-colors">January 20, 2030</span>
+          <a 
+            href="https://www.bbb.org/us/az/scottsdale/profile/mobile-notary/rne-premier-mobile-notary-1126-1000167036/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-block transition-all hover:-translate-y-1 hover:opacity-80"
+          >
+            <img 
+              src="https://i.imgur.com/5rXl8kw.png" 
+              alt="BBB Accredited Business" 
+              className="h-20 w-auto"
+              referrerPolicy="no-referrer"
+            />
+          </a>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-sm font-medium text-white/40">
+            <div className="flex items-center gap-2 group cursor-default">
+              <span className="w-2 h-2 rounded-full bg-accent-gold group-hover:shadow-[0_0_10px_rgba(212,175,55,0.8)] transition-shadow"></span>
+              Commission Number: <span className="text-white/80 group-hover:text-white transition-colors">691790</span>
+            </div>
+            <div className="hidden sm:block w-px h-4 bg-white/10"></div>
+            <div className="flex items-center gap-2 group cursor-default">
+              <span className="w-2 h-2 rounded-full bg-accent-gold-dark group-hover:shadow-[0_0_10px_rgba(212,175,55,0.8)] transition-shadow"></span>
+              Expiration Date: <span className="text-white/80 group-hover:text-white transition-colors">January 20, 2030</span>
+            </div>
           </div>
         </motion.div>
       </div>

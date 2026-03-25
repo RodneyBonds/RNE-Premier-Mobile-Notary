@@ -44,7 +44,7 @@ export default function Contact() {
     
     setStatus('submitting');
     try {
-      // Save to Firestore
+      // 1. Save to Firestore
       const path = 'messages';
       try {
         await addDoc(collection(db, path), {
@@ -56,8 +56,26 @@ export default function Contact() {
         handleFirestoreError(error, OperationType.CREATE, path);
       }
 
-      // Also send to FormSubmit (optional fallback, but user asked for admin panel)
-      // For now, let's just use Firestore as the primary source for the admin panel.
+      // 2. Send Email Notification via FormSubmit
+      try {
+        const formSubmitData = new FormData();
+        formSubmitData.append('name', formData.name);
+        formSubmitData.append('phone', formData.phone);
+        formSubmitData.append('email', formData.email);
+        formSubmitData.append('message', formData.message);
+        formSubmitData.append('_subject', `New Contact Form: ${formData.name}`);
+        formSubmitData.append('_template', 'table');
+        formSubmitData.append('_captcha', 'false');
+
+        await fetch('https://formsubmit.co/ajax/rodney@rnepremiermobilenotary.com', {
+          method: 'POST',
+          body: formSubmitData,
+        });
+      } catch (error) {
+        console.error('FormSubmit notification error:', error);
+        // We don't fail the whole submission if email fails, 
+        // as long as it's saved to Firestore for the admin panel.
+      }
       
       setStatus('success');
       setShowModal(true);

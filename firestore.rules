@@ -60,13 +60,14 @@ service cloud.firestore {
 
     function isValidMessage(data) {
       return hasRequiredFields(['name', 'email', 'phone', 'message', 'createdAt', 'status']) &&
-             hasOnlyAllowedFields(['name', 'email', 'phone', 'message', 'createdAt', 'status']) &&
+             hasOnlyAllowedFields(['name', 'email', 'phone', 'message', 'createdAt', 'status', 'replies']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.email is string && isValidEmail(data.email) &&
              data.phone is string && data.phone.size() > 0 && data.phone.size() < 20 &&
              data.message is string && data.message.size() > 0 && data.message.size() < 5000 &&
              data.createdAt is timestamp &&
-             data.status in ['unread', 'read', 'replied'];
+             data.status in ['unread', 'read', 'replied'] &&
+             (!('replies' in data) || data.replies is list);
     }
 
     function isValidUser(data) {

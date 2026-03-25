@@ -10,7 +10,19 @@
         "phone": { "type": "string", "description": "The sender's phone number." },
         "message": { "type": "string", "description": "The message content." },
         "createdAt": { "type": "string", "format": "date-time", "description": "The time the message was sent." },
-        "status": { "type": "string", "enum": ["unread", "read", "replied"], "description": "The status of the message." }
+        "status": { "type": "string", "enum": ["unread", "read", "replied"], "description": "The status of the message." },
+        "replies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": { "type": "string", "description": "The reply text." },
+              "createdAt": { "type": "string", "format": "date-time", "description": "The time the reply was sent." }
+            },
+            "required": ["text", "createdAt"]
+          },
+          "description": "A list of replies to the message."
+        }
       },
       "required": ["name", "email", "phone", "message", "createdAt", "status"]
     },

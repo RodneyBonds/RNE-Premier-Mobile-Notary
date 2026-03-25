@@ -31,9 +31,16 @@ import {
   doc, 
   updateDoc, 
   deleteDoc,
-  getDoc
+  getDoc,
+  arrayUnion,
+  Timestamp
 } from 'firebase/firestore';
 import { format } from 'date-fns';
+
+interface Reply {
+  text: string;
+  createdAt: any;
+}
 
 interface Message {
   id: string;
@@ -43,6 +50,7 @@ interface Message {
   message: string;
   createdAt: any;
   status: 'unread' | 'read' | 'replied';
+  replies?: Reply[];
 }
 
 export default function Admin() {
@@ -51,6 +59,10 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  
+  // Reply state
+  const [replyText, setReplyText] = useState('');
+  const [isSendingReply, setIsSendingReply] = useState(false);
   
   // Login states
   const [email, setEmail] = useState('');
@@ -129,6 +141,30 @@ export default function Admin() {
   };
 
   const handleLogout = () => signOut(auth);
+
+  const handleSendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedMessage || !replyText.trim()) return;
+    
+    setIsSendingReply(true);
+    try {
+      const reply = {
+        text: replyText.trim(),
+        createdAt: Timestamp.now()
+      };
+      
+      await updateDoc(doc(db, 'messages', selectedMessage.id), {
+        replies: arrayUnion(reply),
+        status: 'replied'
+      });
+      
+      setReplyText('');
+    } catch (error) {
+      console.error('Send reply error:', error);
+    } finally {
+      setIsSendingReply(false);
+    }
+  };
 
   const updateStatus = async (id: string, status: Message['status']) => {
     try {
@@ -391,41 +427,86 @@ export default function Admin() {
                   </div>
                 </div>
 
-                <div className="flex-1 bg-white/[0.01] border border-white/10 rounded-2xl p-8 mb-8 overflow-y-auto custom-scrollbar">
-                  <h4 className="text-xs uppercase tracking-widest text-white/30 mb-4 font-bold">Message Content</h4>
-                  <p className="text-lg leading-relaxed text-white/80 whitespace-pre-wrap">
-                    {selectedMessage.message}
-                  </p>
+                <div className="flex-1 bg-white/[0.01] border border-white/10 rounded-2xl p-8 mb-8 overflow-y-auto custom-scrollbar flex flex-col gap-8">
+                  <div>
+                    <h4 className="text-xs uppercase tracking-widest text-white/30 mb-4 font-bold">Message Content</h4>
+                    <p className="text-lg leading-relaxed text-white/80 whitespace-pre-wrap">
+                      {selectedMessage.message}
+                    </p>
+                  </div>
+
+                  {selectedMessage.replies && selectedMessage.replies.length > 0 && (
+                    <div className="space-y-6 pt-8 border-t border-white/5">
+                      <h4 className="text-xs uppercase tracking-widest text-white/30 font-bold">Replies</h4>
+                      {selectedMessage.replies.map((reply, idx) => (
+                        <div key={idx} className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-5 ml-8 relative">
+                          <div className="absolute -left-4 top-6 w-4 h-[1px] bg-blue-500/20"></div>
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Admin Reply</span>
+                            <span className="text-[10px] text-white/20">
+                              {reply.createdAt ? format(reply.createdAt.toDate(), 'MMM d, h:mm a') : '...'}
+                            </span>
+                          </div>
+                          <p className="text-white/70 whitespace-pre-wrap">{reply.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex flex-col md:flex-row gap-4">
-                  <a
-                    href={`mailto:${selectedMessage.email}?subject=Re: Contact Form Submission - RNE Premier`}
-                    onClick={() => updateStatus(selectedMessage.id, 'replied')}
-                    className="flex-1 bg-accent-gold hover:bg-accent-gold-dark text-[#050B14] font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-accent-gold/20"
-                  >
-                    <Reply className="w-5 h-5" />
-                    Reply via Email
-                  </a>
-                  <div className="flex gap-2">
-                    {selectedMessage.status !== 'replied' && (
-                      <button
-                        onClick={() => updateStatus(selectedMessage.id, 'replied')}
-                        className="px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-sm font-medium"
-                      >
-                        Mark as Replied
-                      </button>
-                    )}
-                    {selectedMessage.status === 'replied' && (
-                      <button
-                        onClick={() => updateStatus(selectedMessage.id, 'read')}
-                        className="px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-sm font-medium"
-                      >
-                        Mark as Read
-                      </button>
-                    )}
+                <form onSubmit={handleSendReply} className="space-y-4">
+                  <div className="relative">
+                    <textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="Type your reply here..."
+                      rows={3}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-white focus:border-accent-gold outline-none transition-all resize-none placeholder:text-white/20"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSendingReply || !replyText.trim()}
+                      className="absolute bottom-4 right-4 bg-accent-gold hover:bg-accent-gold-dark text-[#050B14] p-3 rounded-xl transition-all shadow-lg shadow-accent-gold/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSendingReply ? (
+                        <div className="w-5 h-5 border-2 border-[#050B14] border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <Reply className="w-5 h-5" />
+                      )}
+                    </button>
                   </div>
-                </div>
+                  
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <a
+                      href={`mailto:${selectedMessage.email}?subject=Re: Contact Form Submission - RNE Premier`}
+                      onClick={() => updateStatus(selectedMessage.id, 'replied')}
+                      className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-3 border border-white/10"
+                    >
+                      <Mail className="w-5 h-5" />
+                      Open in Email Client
+                    </a>
+                    <div className="flex gap-2">
+                      {selectedMessage.status !== 'replied' && (
+                        <button
+                          type="button"
+                          onClick={() => updateStatus(selectedMessage.id, 'replied')}
+                          className="px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-sm font-medium"
+                        >
+                          Mark as Replied
+                        </button>
+                      )}
+                      {selectedMessage.status === 'replied' && (
+                        <button
+                          type="button"
+                          onClick={() => updateStatus(selectedMessage.id, 'read')}
+                          className="px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-sm font-medium"
+                        >
+                          Mark as Read
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </form>
               </motion.div>
             ) : (
               <div className="h-full bg-white/[0.01] border border-dashed border-white/10 rounded-[2rem] flex flex-col items-center justify-center text-center p-12">

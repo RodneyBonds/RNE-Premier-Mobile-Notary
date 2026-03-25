@@ -142,7 +142,7 @@ export default function Contact() {
             {/* Animated Glow Behind Form */}
             <div className="absolute inset-0 bg-accent-gold/10 blur-3xl rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
 
-            <div className="relative bg-white/[0.02] border border-white/10 p-8 md:p-10 rounded-3xl backdrop-blur-sm group-hover:border-accent-gold/30 transition-colors duration-500 shadow-2xl group-hover:shadow-[0_0_40px_rgba(212,175,55,0.15)]">
+            <div className="relative bg-white/[0.02] border border-white/10 p-8 md:p-10 rounded-3xl backdrop-blur-sm group-hover:border-accent-gold/30 transition-colors duration-500 shadow-2xl group-hover:shadow-[0_0_40px_rgba(212,175,55,0.15)] overflow-hidden">
               <h3 className="text-2xl font-bold text-white mb-8">Get in touch</h3>
               <form className="space-y-6" onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -229,47 +229,47 @@ export default function Contact() {
                 </button>
                 {status === 'error' && <p className="text-red-500 text-center text-sm">Something went wrong. Please try again.</p>}
               </form>
-            </div>
 
-            {/* Success Modal */}
-            <AnimatePresence>
-              {showModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                    className="bg-[#0A111E] border border-accent-gold/30 p-8 rounded-3xl max-w-md w-full shadow-[0_0_50px_rgba(212,175,55,0.15)] relative overflow-hidden"
-                  >
-                    {/* Decorative background element */}
-                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-accent-gold/10 rounded-full blur-3xl"></div>
-                    
-                    <button 
-                      onClick={() => setShowModal(false)}
-                      className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors"
+              {/* Success Modal - Now Absolute to the Form Container */}
+              <AnimatePresence>
+                {showModal && (
+                  <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-[#050B14]/90 backdrop-blur-md">
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                      className="bg-[#0A111E] border border-accent-gold/30 p-8 rounded-3xl max-w-sm w-full shadow-[0_0_50px_rgba(212,175,55,0.15)] relative overflow-hidden"
                     >
-                      <X className="w-6 h-6" />
-                    </button>
-
-                    <div className="flex flex-col items-center text-center">
-                      <div className="w-20 h-20 bg-accent-gold/20 rounded-full flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(212,175,55,0.2)]">
-                        <CheckCircle2 className="w-10 h-10 text-accent-gold" />
-                      </div>
-                      <h4 className="text-2xl font-bold text-white mb-3">Message Received!</h4>
-                      <p className="text-white/60 mb-8">
-                        Thank you for reaching out to RNE Premier. We've received your message and will get back to you as soon as possible.
-                      </p>
-                      <button
+                      {/* Decorative background element */}
+                      <div className="absolute -top-24 -right-24 w-48 h-48 bg-accent-gold/10 rounded-full blur-3xl"></div>
+                      
+                      <button 
                         onClick={() => setShowModal(false)}
-                        className="w-full bg-accent-gold hover:bg-accent-gold-dark text-[#050B14] font-bold py-4 rounded-xl transition-all duration-300"
+                        className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors"
                       >
-                        Close
+                        <X className="w-6 h-6" />
                       </button>
-                    </div>
-                  </motion.div>
-                </div>
-              )}
-            </AnimatePresence>
+
+                      <div className="flex flex-col items-center text-center">
+                        <div className="w-16 h-16 bg-accent-gold/20 rounded-full flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(212,175,55,0.2)]">
+                          <CheckCircle2 className="w-8 h-8 text-accent-gold" />
+                        </div>
+                        <h4 className="text-xl font-bold text-white mb-2">Message Received!</h4>
+                        <p className="text-white/60 text-sm mb-6">
+                          Thank you for reaching out to RNE Premier. We'll get back to you as soon as possible.
+                        </p>
+                        <button
+                          onClick={() => setShowModal(false)}
+                          className="w-full bg-accent-gold hover:bg-accent-gold-dark text-[#050B14] font-bold py-3 rounded-xl transition-all duration-300 text-sm"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+            </div>
           </motion.div>
         </div>
       </div>

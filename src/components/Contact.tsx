@@ -56,23 +56,17 @@ export default function Contact() {
         handleFirestoreError(error, OperationType.CREATE, path);
       }
 
-      // 2. Send Email Notification via FormSubmit
+      // 2. Send Email Notification via Resend
       try {
-        const formSubmitData = new FormData();
-        formSubmitData.append('name', formData.name);
-        formSubmitData.append('phone', formData.phone);
-        formSubmitData.append('email', formData.email);
-        formSubmitData.append('message', formData.message);
-        formSubmitData.append('_subject', `New Contact Form: ${formData.name}`);
-        formSubmitData.append('_template', 'table');
-        formSubmitData.append('_captcha', 'false');
-
-        await fetch('https://formsubmit.co/ajax/rodney@rnepremiermobilenotary.com', {
+        await fetch('/api/send-email', {
           method: 'POST',
-          body: formSubmitData,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
         });
       } catch (error) {
-        console.error('FormSubmit notification error:', error);
+        console.error('Email notification error:', error);
         // We don't fail the whole submission if email fails, 
         // as long as it's saved to Firestore for the admin panel.
       }

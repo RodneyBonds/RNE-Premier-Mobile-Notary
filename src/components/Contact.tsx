@@ -1,7 +1,31 @@
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Send } from 'lucide-react';
 
 export default function Contact() {
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', message: '' });
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus('submitting');
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      if (response.ok) {
+        setStatus('success');
+        setFormData({ name: '', phone: '', email: '', message: '' });
+      } else {
+        setStatus('error');
+      }
+    } catch (error) {
+      setStatus('error');
+    }
+  };
+
   return (
     <section id="contact" className="py-32 bg-[#050B14] rounded-t-[3rem] -mt-12 relative z-20 overflow-hidden">
       {/* Background Glow */}
@@ -78,13 +102,16 @@ export default function Contact() {
 
             <div className="relative bg-white/[0.02] border border-white/10 p-8 md:p-10 rounded-3xl backdrop-blur-sm group-hover:border-accent-gold/30 transition-colors duration-500 shadow-2xl group-hover:shadow-[0_0_40px_rgba(212,175,55,0.15)]">
               <h3 className="text-2xl font-bold text-white mb-8">Get in touch</h3>
-              <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+              <form className="space-y-6" onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label htmlFor="name" className="text-sm font-medium text-white/60">Full Name</label>
                     <input
                       type="text"
                       id="name"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold focus:shadow-[0_0_15px_rgba(212,175,55,0.2)] outline-none transition-all placeholder:text-white/20"
                       placeholder="John Doe"
                     />
@@ -94,6 +121,9 @@ export default function Contact() {
                     <input
                       type="tel"
                       id="phone"
+                      required
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold focus:shadow-[0_0_15px_rgba(212,175,55,0.2)] outline-none transition-all placeholder:text-white/20"
                       placeholder="(480) 555-0123"
                     />
@@ -105,6 +135,9 @@ export default function Contact() {
                   <input
                     type="email"
                     id="email"
+                    required
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold focus:shadow-[0_0_15px_rgba(212,175,55,0.2)] outline-none transition-all placeholder:text-white/20"
                     placeholder="john@example.com"
                   />
@@ -115,6 +148,9 @@ export default function Contact() {
                   <textarea
                     id="message"
                     rows={4}
+                    required
+                    value={formData.message}
+                    onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                     className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold focus:shadow-[0_0_15px_rgba(212,175,55,0.2)] outline-none transition-all resize-none placeholder:text-white/20"
                     placeholder="How can we help you?"
                   ></textarea>
@@ -122,11 +158,14 @@ export default function Contact() {
 
                 <button
                   type="submit"
-                  className="w-full bg-accent-gold hover:bg-accent-gold-dark text-[#050B14] font-semibold px-8 py-4 rounded-xl transition-all duration-300 shadow-lg shadow-accent-gold/20 hover:shadow-[0_0_30px_rgba(212,175,55,0.4)] hover:-translate-y-1 flex items-center justify-center gap-2 group/btn"
+                  disabled={status === 'submitting'}
+                  className="w-full bg-accent-gold hover:bg-accent-gold-dark text-[#050B14] font-semibold px-8 py-4 rounded-xl transition-all duration-300 shadow-lg shadow-accent-gold/20 hover:shadow-[0_0_30px_rgba(212,175,55,0.4)] hover:-translate-y-1 flex items-center justify-center gap-2 group/btn disabled:opacity-50"
                 >
                   <Send className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
-                  Send Message
+                  {status === 'submitting' ? 'Sending...' : 'Send Message'}
                 </button>
+                {status === 'success' && <p className="text-green-500 text-center">Message sent successfully!</p>}
+                {status === 'error' && <p className="text-red-500 text-center">Failed to send message. Please try again.</p>}
               </form>
             </div>
           </motion.div>

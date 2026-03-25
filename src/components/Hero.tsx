@@ -52,7 +52,7 @@ export default function Hero() {
   }, []);
 
   return (
-    <section id="home" className="relative min-h-screen flex items-center justify-center bg-[#030712] overflow-hidden pt-32 pb-20 border-4 border-red-500">
+    <section id="home" className="relative min-h-screen flex items-center justify-center bg-[#030712] overflow-hidden pt-32 pb-20">
       {/* Background Gradients / Glows */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         {/* Animated Grid Overlay with Radial Mask */}
@@ -131,10 +131,12 @@ export default function Hero() {
         />
       </div>
 
-      <div 
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
         className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center"
       >
-        <h1 className="text-white text-5xl">DEBUG: Hero is rendering</h1>
         <motion.div
           variants={itemVariants}
           className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-amber-500/20 bg-amber-500/10 backdrop-blur-sm mb-10"
@@ -253,7 +255,7 @@ export default function Hero() {
             </motion.div>
           </div>
         </motion.div>
-      </div>
+      </motion.div>
     </section>
   );
 }

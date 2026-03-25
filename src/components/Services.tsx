@@ -10,20 +10,6 @@ import {
   MapPin
 } from 'lucide-react';
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import {
-  FileSignature,
-  Home,
-  Briefcase,
-  ScrollText,
-  ShieldAlert,
-  Hospital,
-  Building,
-  MapPin,
-  ChevronDown
-} from 'lucide-react';
-
 const services = [
   { 
     icon: FileSignature, 
@@ -76,7 +62,24 @@ const services = [
 ];
 
 export default function Services() {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { duration: 0.6, ease: "easeOut" }
+    },
+  };
 
   return (
     <section id="services" className="py-32 bg-[#030712] relative overflow-hidden border-t border-white/5">
@@ -104,76 +107,68 @@ export default function Services() {
         />
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="mb-16 text-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 mb-6"
-          >
-            <span className="text-sm font-medium text-accent-gold">Comprehensive Services</span>
-          </motion.div>
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-4xl md:text-5xl font-bold text-white tracking-tight leading-tight"
-          >
-            Realize new ideas and opportunities <span className="text-gradient">without the hassle.</span>
-          </motion.h2>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="flex flex-col justify-center items-center text-center mb-16 gap-8">
+          <div className="max-w-3xl">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.5 }}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 mb-6"
+            >
+              <span className="text-sm font-medium text-accent-gold">Comprehensive Services</span>
+            </motion.div>
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-4xl md:text-6xl font-bold text-white tracking-tight leading-tight"
+            >
+              Realize new ideas and opportunities <span className="text-accent-gold">without the hassle.</span>
+            </motion.h2>
+          </div>
         </div>
 
-        <div className="space-y-4">
-          {services.map((service, index) => {
-            const isOpen = openIndex === index;
-            return (
-              <motion.div
-                key={service.title}
-                initial={false}
-                className="bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden"
-              >
-                <button
-                  onClick={() => setOpenIndex(isOpen ? null : index)}
-                  className="w-full p-6 flex items-center justify-between text-left hover:bg-white/[0.05] transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-xl border ${isOpen ? 'border-accent-gold/50 bg-accent-gold/10' : 'border-white/10 bg-white/5'}`}>
-                      <service.icon className={`w-6 h-6 ${isOpen ? 'text-accent-gold' : 'text-white/70'}`} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">{service.title}</h3>
-                      <p className="text-sm text-white/50">{service.desc}</p>
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-50px" }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+        >
+          {services.map((service, index) => (
+            <motion.div
+              key={service.title}
+              variants={itemVariants}
+              whileHover={{ y: -8, scale: 1.02 }}
+              className="bg-white/[0.02] border border-white/10 rounded-3xl p-8 hover:bg-white/[0.05] hover:border-accent-gold/30 transition-all duration-300 group relative overflow-hidden flex flex-col"
+            >
+              {/* Hover gradient background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-accent-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              
+              <div className="relative z-10 flex flex-col h-full">
+                <div className="inline-flex items-center gap-2 border border-white/20 rounded-full px-4 py-1.5 mb-6 text-sm text-white/80 group-hover:border-accent-gold/50 group-hover:text-white transition-colors self-start">
+                  <service.icon className="w-4 h-4 text-accent-gold group-hover:scale-110 transition-transform duration-300" />
+                  {service.title}
+                </div>
+                <p className="text-white/60 leading-relaxed text-sm group-hover:text-white/80 transition-colors">
+                  {service.desc}
+                </p>
+                
+                {/* Expandable Details */}
+                <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-500 ease-in-out">
+                  <div className="overflow-hidden">
+                    <div className="pt-4 mt-4 border-t border-white/10 text-white/50 text-sm leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">
+                      {service.details}
                     </div>
                   </div>
-                  <motion.div
-                    animate={{ rotate: isOpen ? 180 : 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <ChevronDown className="w-6 h-6 text-white/50" />
-                  </motion.div>
-                </button>
-                
-                <AnimatePresence>
-                  {isOpen && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3, ease: "easeInOut" }}
-                    >
-                      <div className="px-6 pb-6 pt-0 text-white/60 text-sm leading-relaxed border-t border-white/5">
-                        <p className="pt-4">{service.details}</p>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            );
-          })}
-        </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
       </div>
     </section>
   );

@@ -16,6 +16,8 @@ async function startServer() {
   app.post("/api/send-email", async (req, res) => {
     const { name, email, phone, message } = req.body;
 
+    console.log("Email request received. RESEND_API_KEY present:", !!process.env.RESEND_API_KEY);
+
     if (!process.env.RESEND_API_KEY) {
       console.error("RESEND_API_KEY is missing");
       return res.status(500).json({ error: "Email service not configured" });

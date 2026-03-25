@@ -36,6 +36,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 export default function Contact() {
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', message: '' });
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,6 +44,7 @@ export default function Contact() {
     if (status === 'success') return;
     
     setStatus('submitting');
+    setErrorMessage(null);
     try {
       // 1. Save to Firestore
       const path = 'messages';
@@ -67,7 +69,8 @@ export default function Contact() {
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send email');
+        const msg = typeof errorData.error === 'string' ? errorData.error : (errorData.error?.message || 'Failed to send email');
+        throw new Error(msg);
       }
       
       setStatus('success');
@@ -76,7 +79,7 @@ export default function Contact() {
     } catch (error) {
       console.error('Form submission error:', error);
       setStatus('error');
-      // If it's a Resend error, we'll show it in the console and the status will be 'error'
+      setErrorMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
     }
   };
 
@@ -240,7 +243,13 @@ export default function Contact() {
                     </>
                   )}
                 </button>
-                {status === 'error' && <p className="text-red-500 text-center text-sm">Something went wrong. Please try again.</p>}
+                {status === 'error' && (
+                  <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                    <p className="text-red-500 text-center text-sm font-medium">
+                      {errorMessage || 'Something went wrong. Please try again.'}
+                    </p>
+                  </div>
+                )}
               </form>
 
               {/* Success Modal - Now Absolute to the Form Container */}

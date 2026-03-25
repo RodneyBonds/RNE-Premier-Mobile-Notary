@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-dark: #050B14;
+  --color-bg-card: #0A1128;
+  --color-accent-gold: #D4AF37;
+  --color-accent-gold-light: #F3E5AB;
+  --color-accent-gold-dark: #AA7C11;
+  --color-accent-navy: #0A1128;
+  --color-accent-navy-light: #1A2B50;
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+}
+
+html {
+  scroll-padding-top: 6rem;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-dark);
+  color: #ffffff;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar for a premium feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-accent-navy-light);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent-gold);
+}
+
+.text-gradient {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(to right, var(--color-accent-gold-light), var(--color-accent-gold), var(--color-accent-gold-dark));
+}
+
+.bg-gradient-glow {
+  background-image: linear-gradient(to right, var(--color-accent-gold-light), var(--color-accent-gold), var(--color-accent-gold-dark));
+}

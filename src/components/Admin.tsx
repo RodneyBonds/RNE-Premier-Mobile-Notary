@@ -68,7 +68,7 @@ export default function Admin() {
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists() && userDoc.data().role === 'admin') {
             setIsAdmin(true);
-          } else if (currentUser.email === 'Rodbonds1169@gmail.com') {
+          } else if (currentUser.email?.toLowerCase() === 'rodbonds1169@gmail.com') {
             // Fallback for the primary admin
             setIsAdmin(true);
           } else {
@@ -76,7 +76,7 @@ export default function Admin() {
           }
         } catch (e) {
           // If we can't read the user doc, check if it's the hardcoded admin
-          if (currentUser.email === 'Rodbonds1169@gmail.com') {
+          if (currentUser.email?.toLowerCase() === 'rodbonds1169@gmail.com') {
             setIsAdmin(true);
           } else {
             setIsAdmin(false);

@@ -131,44 +131,47 @@ export default function Services() {
           </div>
         </div>
 
-        <motion.div 
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-50px" }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-        >
-          {services.map((service, index) => (
-            <motion.div
-              key={service.title}
-              variants={itemVariants}
-              whileHover={{ y: -8, scale: 1.02 }}
-              className="bg-white/[0.02] border border-white/10 rounded-3xl p-8 hover:bg-white/[0.05] hover:border-accent-gold/30 transition-all duration-300 group relative overflow-hidden flex flex-col"
-            >
-              {/* Hover gradient background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-accent-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              
-              <div className="relative z-10 flex flex-col h-full">
-                <div className="inline-flex items-center gap-2 border border-white/20 rounded-full px-4 py-1.5 mb-6 text-sm text-white/80 group-hover:border-accent-gold/50 group-hover:text-white transition-colors self-start">
-                  <service.icon className="w-4 h-4 text-accent-gold group-hover:scale-110 transition-transform duration-300" />
-                  {service.title}
-                </div>
-                <p className="text-white/60 leading-relaxed text-sm group-hover:text-white/80 transition-colors">
-                  {service.desc}
-                </p>
-                
-                {/* Expandable Details */}
-                <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-500 ease-in-out">
-                  <div className="overflow-hidden">
-                    <div className="pt-4 mt-4 border-t border-white/10 text-white/50 text-sm leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">
-                      {service.details}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[0, 1, 2, 3].map((colIndex) => (
+            <div key={colIndex} className="flex flex-col gap-6">
+              {services
+                .filter((_, index) => index % 4 === colIndex)
+                .map((service) => (
+                  <motion.div
+                    key={service.title}
+                    variants={itemVariants}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-50px" }}
+                    whileHover={{ y: -8, scale: 1.02 }}
+                    className="bg-white/[0.02] border border-white/10 rounded-3xl p-8 hover:bg-white/[0.05] hover:border-accent-gold/30 transition-all duration-300 group relative overflow-hidden flex flex-col"
+                  >
+                    {/* Hover gradient background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-accent-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    
+                    <div className="relative z-10 flex flex-col h-full">
+                      <div className="inline-flex items-center gap-2 border border-white/20 rounded-full px-4 py-1.5 mb-6 text-sm text-white/80 group-hover:border-accent-gold/50 group-hover:text-white transition-colors self-start">
+                        <service.icon className="w-4 h-4 text-accent-gold group-hover:scale-110 transition-transform duration-300" />
+                        {service.title}
+                      </div>
+                      <p className="text-white/60 leading-relaxed text-sm group-hover:text-white/80 transition-colors">
+                        {service.desc}
+                      </p>
+                      
+                      {/* Expandable Details */}
+                      <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-500 ease-in-out">
+                        <div className="overflow-hidden">
+                          <div className="pt-4 mt-4 border-t border-white/10 text-white/50 text-sm leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">
+                            {service.details}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+                  </motion.div>
+                ))}
+            </div>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   );

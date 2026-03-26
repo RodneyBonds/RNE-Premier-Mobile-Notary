@@ -15,6 +15,22 @@ export default function LiveChat() {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
+    const savedSessionId = localStorage.getItem('chatSessionId');
+    if (savedSessionId) {
+      setSessionId(savedSessionId);
+      setChatStarted(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (sessionId) {
+      localStorage.setItem('chatSessionId', sessionId);
+    } else {
+      localStorage.removeItem('chatSessionId');
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
     if (contextFormData.name) setFormData(contextFormData);
   }, [contextFormData]);
 
@@ -34,7 +50,6 @@ export default function LiveChat() {
       const messagesRef = collection(db, 'chatSessions', sessionId, 'messages');
       const q = query(messagesRef, orderBy('timestamp', 'asc'));
       const unsubMessages = onSnapshot(q, (snapshot) => {
-        console.log('LiveChat messages updated:', snapshot.docs.length);
         setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       });
       return () => unsubMessages();
@@ -45,12 +60,14 @@ export default function LiveChat() {
     e.preventDefault();
     if (!isAdminOnline) return;
     
+    console.log('Starting chat with formData:', formData);
     try {
       const sessionRef = await addDoc(collection(db, 'chatSessions'), {
         ...formData,
         status: 'active',
         createdAt: serverTimestamp()
       });
+      console.log('Chat session created:', sessionRef.id);
       setSessionId(sessionRef.id);
       setChatStarted(true);
       
@@ -62,11 +79,17 @@ export default function LiveChat() {
         timestamp: serverTimestamp()
       });
     } catch (error) {
+      console.error('Error starting chat:', error);
       handleFirestoreError(error, OperationType.CREATE, 'chatSessions');
     }
   };
 
   const sendMessage = async (text) => {
+    console.log('Sending message to sessionId:', sessionId, 'text:', text);
+    if (!sessionId) {
+      console.error('No sessionId found for message');
+      return;
+    }
     try {
       await addDoc(collection(db, 'chatSessions', sessionId, 'messages'), {
         senderId: 'visitor',
@@ -75,6 +98,7 @@ export default function LiveChat() {
         timestamp: serverTimestamp()
       });
     } catch (error) {
+      console.error('Error sending message:', error);
       handleFirestoreError(error, OperationType.CREATE, 'chatSessions/' + sessionId + '/messages');
     }
   };

@@ -20,7 +20,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { name, email, replyText, originalMessage } = req.body;
+    const { messageId, name, email, replyText, originalMessage } = req.body;
 
     if (!process.env.RESEND_API_KEY) {
       return res.status(500).json({ error: 'Email service not configured. Please add RESEND_API_KEY to environment variables.' });
@@ -28,12 +28,13 @@ export default async function handler(req: any, res: any) {
 
     const resend = new Resend(process.env.RESEND_API_KEY);
     const fromEmail = process.env.RESEND_FROM_EMAIL || "RNE Premier Mobile Notary <onboarding@resend.dev>";
+    const replyToEmail = process.env.RESEND_INBOUND_EMAIL || "rodneyrnepremiermobilenotary@gmail.com";
 
     const { data, error } = await resend.emails.send({
       from: fromEmail,
       to: [email],
-      replyTo: 'rodneyrnepremiermobilenotary@gmail.com',
-      subject: `Re: Your Contact Form Submission - RNE Premier`,
+      replyTo: replyToEmail,
+      subject: `Re: Your Contact Form Submission - RNE Premier [Ref: ${messageId}]`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Hello ${name},</h2>

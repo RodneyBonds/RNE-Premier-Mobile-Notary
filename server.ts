@@ -69,7 +69,7 @@ async function startServer() {
   app.post("/api/send-reply", async (req, res) => {
     console.log(`POST /api/send-reply request received`);
     console.log("Body:", JSON.stringify(req.body));
-    const { name, email, replyText, originalMessage } = req.body;
+    const { messageId, name, email, replyText, originalMessage } = req.body;
 
     if (!process.env.RESEND_API_KEY) {
       console.error("RESEND_API_KEY is missing");
@@ -80,12 +80,13 @@ async function startServer() {
       const { Resend } = await import("resend");
       const resend = new Resend(process.env.RESEND_API_KEY);
       const fromEmail = process.env.RESEND_FROM_EMAIL || "RNE Premier Mobile Notary <onboarding@resend.dev>";
+      const replyToEmail = process.env.RESEND_INBOUND_EMAIL || "rodneyrnepremiermobilenotary@gmail.com";
 
       const { data, error } = await resend.emails.send({
         from: fromEmail,
         to: [email],
-        replyTo: "rodneyrnepremiermobilenotary@gmail.com",
-        subject: `Re: Your Contact Form Submission - RNE Premier`,
+        replyTo: replyToEmail,
+        subject: `Re: Your Contact Form Submission - RNE Premier [Ref: ${messageId}]`,
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>Hello ${name},</h2>
@@ -117,6 +118,63 @@ async function startServer() {
     } catch (error) {
       console.error("Server error sending reply email:", error);
       res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+
+  // API Route for inbound webhooks from Resend
+  app.post("/api/webhooks/inbound", async (req, res) => {
+    console.log(`POST /api/webhooks/inbound request received`);
+    try {
+      const payload = req.body;
+      console.log('Received webhook payload:', JSON.stringify(payload));
+      
+      if (payload.type !== 'email.received') {
+        return res.status(200).json({ message: 'Ignored non-email event' });
+      }
+
+      const { subject, text, from } = payload.data;
+      const match = subject.match(/\[Ref:\s*([^\]]+)\]/i);
+      if (!match) {
+        console.log('No message ID found in subject:', subject);
+        return res.status(200).json({ message: 'No reference ID found' });
+      }
+
+      const messageId = match[1];
+
+      // Dynamic import to avoid top-level issues
+      const { initializeApp } = await import('firebase/app');
+      const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
+      const { getFirestore, doc, updateDoc, arrayUnion, Timestamp } = await import('firebase/firestore');
+      const fs = await import('fs');
+      const path = await import('path');
+
+      const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+      const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+      const firebaseApp = initializeApp(firebaseConfig, 'webhook-app');
+      const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
+      const auth = getAuth(firebaseApp);
+
+      const adminEmail = process.env.FIREBASE_ADMIN_EMAIL || 'adminrodney@rnepremiermobilenotary.com';
+      const adminPassword = process.env.FIREBASE_ADMIN_PASSWORD || 'passrodney';
+      
+      await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+
+      const reply = {
+        text: text || 'No text content',
+        createdAt: Timestamp.now(),
+        sender: 'client'
+      };
+
+      await updateDoc(doc(db, 'messages', messageId), {
+        replies: arrayUnion(reply),
+        status: 'unread'
+      });
+
+      return res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('Webhook error:', error);
+      return res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
     }
   });
 

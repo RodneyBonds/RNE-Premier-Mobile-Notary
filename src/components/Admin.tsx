@@ -42,6 +42,7 @@ import { format } from 'date-fns';
 interface Reply {
   text: string;
   createdAt: any;
+  sender?: 'admin' | 'client';
 }
 
 interface Message {
@@ -133,7 +134,8 @@ export default function Admin() {
     try {
       const reply = {
         text: replyText.trim(),
-        createdAt: Timestamp.now()
+        createdAt: Timestamp.now(),
+        sender: 'admin'
       };
       
       // Send email via API
@@ -143,6 +145,7 @@ export default function Admin() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          messageId: selectedMessage.id,
           name: selectedMessage.name,
           email: selectedMessage.email,
           replyText: replyText.trim(),
@@ -488,10 +491,20 @@ export default function Admin() {
                     <div className="space-y-6 pt-8 border-t border-white/5">
                       <h4 className="text-xs uppercase tracking-widest text-white/30 font-bold">Replies</h4>
                       {selectedMessage.replies.map((reply, idx) => (
-                        <div key={idx} className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-5 ml-8 relative">
-                          <div className="absolute -left-4 top-6 w-4 h-[1px] bg-blue-500/20"></div>
+                        <div key={idx} className={`border rounded-xl p-5 relative ${
+                          reply.sender === 'client' 
+                            ? 'bg-white/5 border-white/10 mr-8' 
+                            : 'bg-blue-500/5 border-blue-500/10 ml-8'
+                        }`}>
+                          {reply.sender !== 'client' && (
+                            <div className="absolute -left-4 top-6 w-4 h-[1px] bg-blue-500/20"></div>
+                          )}
                           <div className="flex justify-between items-center mb-2">
-                            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Admin Reply</span>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                              reply.sender === 'client' ? 'text-white/50' : 'text-blue-400'
+                            }`}>
+                              {reply.sender === 'client' ? 'Client Reply' : 'Admin Reply'}
+                            </span>
                             <span className="text-[10px] text-white/20">
                               {reply.createdAt ? format(reply.createdAt.toDate(), 'MMM d, h:mm a') : '...'}
                             </span>

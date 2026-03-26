@@ -17,7 +17,10 @@ import {
   AlertCircle,
   CheckCircle,
   Ban,
-  Activity
+  Activity,
+  MessageSquare,
+  MessageCircle,
+  X
 } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { 
@@ -54,6 +57,8 @@ interface Message {
   createdAt: any;
   status: 'unread' | 'read' | 'replied' | 'done' | 'cancelled' | 'ongoing';
   replies?: Reply[];
+  type?: 'email' | 'chat';
+  chatStatus?: 'active' | 'closed';
 }
 
 export default function Admin() {
@@ -62,7 +67,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const [filter, setFilter] = useState<'active' | 'done' | 'cancelled' | 'all'>('active');
+  const [filter, setFilter] = useState<'active' | 'done' | 'cancelled' | 'chats' | 'all'>('active');
   
   // Login states
   const [username, setUsername] = useState('');
@@ -143,24 +148,8 @@ export default function Admin() {
     setReplyStatus(null);
 
     try {
-      const response = await fetch('/api/send-reply', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messageId: selectedMessage.id,
-          name: selectedMessage.name,
-          email: selectedMessage.email,
-          replyText: replyText,
-          originalMessage: selectedMessage.message,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Update Firestore with the reply
+      if (selectedMessage.type === 'chat' && selectedMessage.chatStatus === 'active') {
+        // For active chats, just update Firestore
         const newReply: Reply = {
           text: replyText,
           createdAt: Timestamp.now(),
@@ -171,14 +160,49 @@ export default function Admin() {
           replies: arrayUnion(newReply),
           status: 'replied',
         });
-
-        setReplyText('');
-        setReplyStatus({ type: 'success', message: 'Reply sent successfully!' });
         
-        // Clear success message after 3 seconds
+        setReplyText('');
+        setReplyStatus({ type: 'success', message: 'Message sent to chat!' });
         setTimeout(() => setReplyStatus(null), 3000);
       } else {
-        throw new Error(data.error || 'Failed to send reply');
+        // For email or closed chats, send email via API
+        const response = await fetch('/api/send-reply', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messageId: selectedMessage.id,
+            name: selectedMessage.name,
+            email: selectedMessage.email,
+            replyText: replyText,
+            originalMessage: selectedMessage.message,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Update Firestore with the reply
+          const newReply: Reply = {
+            text: replyText,
+            createdAt: Timestamp.now(),
+            sender: 'admin',
+          };
+
+          await updateDoc(doc(db, 'messages', selectedMessage.id), {
+            replies: arrayUnion(newReply),
+            status: 'replied',
+          });
+
+          setReplyText('');
+          setReplyStatus({ type: 'success', message: 'Reply sent successfully!' });
+          
+          // Clear success message after 3 seconds
+          setTimeout(() => setReplyStatus(null), 3000);
+        } else {
+          throw new Error(data.error || 'Failed to send reply');
+        }
       }
     } catch (error: any) {
       console.error('Error sending reply:', error);
@@ -208,7 +232,8 @@ export default function Admin() {
   };
 
   const filteredMessages = messages.filter(msg => {
-    if (filter === 'active') return ['unread', 'read', 'replied', 'ongoing'].includes(msg.status);
+    if (filter === 'active') return ['unread', 'read', 'replied', 'ongoing'].includes(msg.status) && msg.type !== 'chat';
+    if (filter === 'chats') return msg.type === 'chat';
     if (filter === 'done') return msg.status === 'done';
     if (filter === 'cancelled') return msg.status === 'cancelled';
     return true;
@@ -348,11 +373,11 @@ export default function Admin() {
                 
                 {/* Filter Tabs */}
             <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
-              {(['active', 'done', 'cancelled', 'all'] as const).map((f) => (
+              {(['active', 'chats', 'done', 'cancelled', 'all'] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`flex-1 text-xs font-bold uppercase tracking-wider py-2 rounded-lg transition-all ${
+                  className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-2 rounded-lg transition-all ${
                     filter === f 
                       ? 'bg-white/10 text-white shadow-sm' 
                       : 'text-white/40 hover:text-white/80 hover:bg-white/5'
@@ -421,19 +446,26 @@ export default function Admin() {
                     
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        {msg.status === 'unread' && <Circle className="w-2 h-2 fill-accent-gold text-accent-gold" />}
-                        {msg.status === 'read' && <CheckCircle2 className="w-3 h-3 text-white/30" />}
-                        {msg.status === 'replied' && <Reply className="w-3 h-3 text-blue-400" />}
-                        {msg.status === 'ongoing' && <Activity className="w-3 h-3 text-blue-400" />}
-                        {msg.status === 'done' && <CheckCircle className="w-3 h-3 text-green-400" />}
-                        {msg.status === 'cancelled' && <Ban className="w-3 h-3 text-red-400" />}
+                        {msg.type === 'chat' ? (
+                          <MessageSquare className={`w-3 h-3 ${msg.chatStatus === 'active' ? 'text-green-400' : 'text-white/30'}`} />
+                        ) : (
+                          <>
+                            {msg.status === 'unread' && <Circle className="w-2 h-2 fill-accent-gold text-accent-gold" />}
+                            {msg.status === 'read' && <CheckCircle2 className="w-3 h-3 text-white/30" />}
+                            {msg.status === 'replied' && <Reply className="w-3 h-3 text-blue-400" />}
+                            {msg.status === 'ongoing' && <Activity className="w-3 h-3 text-blue-400" />}
+                            {msg.status === 'done' && <CheckCircle className="w-3 h-3 text-green-400" />}
+                            {msg.status === 'cancelled' && <Ban className="w-3 h-3 text-red-400" />}
+                          </>
+                        )}
                         <span className={`text-[10px] uppercase tracking-wider ${
+                          msg.type === 'chat' && msg.chatStatus === 'active' ? 'text-green-400' :
                           msg.status === 'done' ? 'text-green-400' : 
                           msg.status === 'ongoing' ? 'text-blue-400' :
                           msg.status === 'cancelled' ? 'text-red-400' : 
                           'text-white/30'
                         }`}>
-                          {msg.status}
+                          {msg.type === 'chat' ? `Chat: ${msg.chatStatus}` : msg.status}
                         </span>
                       </div>
                       <ChevronRight className={`w-4 h-4 transition-transform ${
@@ -462,11 +494,20 @@ export default function Admin() {
               >
                 <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-12">
                   <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 bg-accent-gold/20 rounded-2xl flex items-center justify-center text-accent-gold text-2xl font-bold">
-                      {selectedMessage.name.charAt(0)}
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold ${
+                      selectedMessage.type === 'chat' ? 'bg-blue-500/20 text-blue-400' : 'bg-accent-gold/20 text-accent-gold'
+                    }`}>
+                      {selectedMessage.type === 'chat' ? <MessageCircle className="w-8 h-8" /> : selectedMessage.name.charAt(0)}
                     </div>
                     <div>
-                      <h2 className="text-3xl font-bold mb-1">{selectedMessage.name}</h2>
+                      <div className="flex items-center gap-3 mb-1">
+                        <h2 className="text-3xl font-bold">{selectedMessage.name}</h2>
+                        {selectedMessage.type === 'chat' && (
+                          <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold uppercase tracking-widest rounded-full border border-blue-500/20">
+                            Live Chat
+                          </span>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-4 text-white/50 text-sm">
                         <a href={`mailto:${selectedMessage.email}`} className="flex items-center gap-2 hover:text-accent-gold transition-colors">
                           <Mail className="w-4 h-4" />
@@ -568,7 +609,10 @@ export default function Admin() {
                         </div>
                       </div>
                       <p className="text-[10px] text-white/20 px-2">
-                        Replies will be sent to <strong>{selectedMessage.email}</strong> via Resend.
+                        {selectedMessage.type === 'chat' && selectedMessage.chatStatus === 'active' 
+                          ? 'Messages will be sent directly to the visitor\'s chat window.'
+                          : `Replies will be sent to ${selectedMessage.email} via Resend.`
+                        }
                       </p>
                     </form>
                   </div>
@@ -621,6 +665,27 @@ export default function Admin() {
                       >
                         <Ban className="w-4 h-4" />
                         Cancelled
+                      </button>
+                    )}
+
+                    {/* Close Chat */}
+                    {selectedMessage.type === 'chat' && selectedMessage.chatStatus === 'active' && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await updateDoc(doc(db, 'messages', selectedMessage.id), { 
+                              chatStatus: 'closed',
+                              status: 'done'
+                            });
+                          } catch (error) {
+                            console.error('Close chat error:', error);
+                          }
+                        }}
+                        className="px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 transition-all text-sm font-medium flex items-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        Close Chat
                       </button>
                     )}
                     

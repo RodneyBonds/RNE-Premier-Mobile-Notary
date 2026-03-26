@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, CheckCircle2, X } from 'lucide-react';
+import { Send, CheckCircle2, X, MessageSquare } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import ChatWindow from './ChatWindow';
 
 enum OperationType {
   CREATE = 'create',
@@ -38,6 +39,18 @@ export default function Contact() {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+
+  const handleStartChat = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Validate required fields for chat
+    if (!formData.name || !formData.email || !formData.phone) {
+      setErrorMessage('Please fill in your name, email, and phone to start a live chat.');
+      setStatus('error');
+      return;
+    }
+    setIsChatOpen(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,27 +241,39 @@ export default function Contact() {
                   ></textarea>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={status === 'submitting' || status === 'success'}
-                  className={`w-full font-semibold px-8 py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group/btn ${
-                    status === 'success' 
-                      ? 'bg-gray-600 text-white/50 cursor-not-allowed' 
-                      : 'bg-accent-gold hover:bg-accent-gold-dark text-[#050B14] shadow-lg shadow-accent-gold/20 hover:shadow-[0_0_30px_rgba(212,175,55,0.4)] hover:-translate-y-1'
-                  }`}
-                >
-                  {status === 'success' ? (
-                    <>
-                      <CheckCircle2 className="w-5 h-5" />
-                      SUBMITTED
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
-                      {status === 'submitting' ? 'SENDING...' : 'SEND MESSAGE'}
-                    </>
-                  )}
-                </button>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <button
+                    type="submit"
+                    disabled={status === 'submitting' || status === 'success'}
+                    className={`flex-1 font-semibold px-8 py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group/btn ${
+                      status === 'success' 
+                        ? 'bg-gray-600 text-white/50 cursor-not-allowed' 
+                        : 'bg-accent-gold hover:bg-accent-gold-dark text-[#050B14] shadow-lg shadow-accent-gold/20 hover:shadow-[0_0_30px_rgba(212,175,55,0.4)] hover:-translate-y-1'
+                    }`}
+                  >
+                    {status === 'success' ? (
+                      <>
+                        <CheckCircle2 className="w-5 h-5" />
+                        SUBMITTED
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                        {status === 'submitting' ? 'SENDING...' : 'SEND MESSAGE'}
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleStartChat}
+                    disabled={status === 'submitting' || status === 'success'}
+                    className="flex-1 font-semibold px-8 py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group/chat bg-white/5 border border-white/10 text-white hover:bg-white/10 hover:border-accent-gold/50 hover:-translate-y-1"
+                  >
+                    <MessageSquare className="w-5 h-5 group-hover/chat:scale-110 transition-transform text-accent-gold" />
+                    LIVE CHAT
+                  </button>
+                </div>
                 {status === 'error' && (
                   <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
                     <p className="text-red-500 text-center text-sm font-medium">
@@ -301,6 +326,13 @@ export default function Contact() {
           </motion.div>
         </div>
       </div>
+
+      {/* Live Chat Window */}
+      <ChatWindow 
+        isOpen={isChatOpen} 
+        onClose={() => setIsChatOpen(false)} 
+        visitorInfo={formData}
+      />
     </section>
   );
 }

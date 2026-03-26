@@ -3,7 +3,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import dotenv from "dotenv";
 import cors from "cors";
-import gmailRoutes from "./gmail-routes.js";
+import gmailRoutes from "./gmail-routes.ts";
 
 dotenv.config();
 

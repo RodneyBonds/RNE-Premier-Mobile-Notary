@@ -18,13 +18,6 @@ import {
 } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { 
-  signInWithPopup,
-  GoogleAuthProvider,
-  onAuthStateChanged, 
-  signOut,
-  User as FirebaseUser
-} from 'firebase/auth';
-import { 
   collection, 
   query, 
   orderBy, 
@@ -32,7 +25,6 @@ import {
   doc, 
   updateDoc, 
   deleteDoc,
-  getDoc,
   arrayUnion,
   Timestamp
 } from 'firebase/firestore';
@@ -55,9 +47,10 @@ interface Message {
 }
 
 export default function Admin() {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(() => {
+    return sessionStorage.getItem('isAdmin') === 'true';
+  });
+  const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   
@@ -66,41 +59,10 @@ export default function Admin() {
   const [isSendingReply, setIsSendingReply] = useState(false);
   
   // Login states
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        // Check if user is admin
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        try {
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists() && userDoc.data().role === 'admin') {
-            setIsAdmin(true);
-          } else if (currentUser.email?.toLowerCase() === 'rodbonds1169@gmail.com') {
-            // Fallback for the primary admin
-            setIsAdmin(true);
-          } else {
-            setIsAdmin(false);
-          }
-        } catch (e) {
-          // If we can't read the user doc, check if it's the hardcoded admin
-          if (currentUser.email?.toLowerCase() === 'rodbonds1169@gmail.com') {
-            setIsAdmin(true);
-          } else {
-            setIsAdmin(false);
-          }
-        }
-      } else {
-        setIsAdmin(false);
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     if (isAdmin) {
@@ -118,23 +80,27 @@ export default function Admin() {
     }
   }, [isAdmin]);
 
-  const handleGoogleLogin = async () => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoginError('');
     setIsLoggingIn(true);
     
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithPopup(auth, provider);
-    } catch (error: any) {
-      console.error('Login error:', error);
-      setLoginError(error.message || 'An error occurred during sign in.');
-    } finally {
+    // Simulate a brief network delay for UX
+    setTimeout(() => {
+      if (username === 'adminrodney' && password === 'passrodney') {
+        setIsAdmin(true);
+        sessionStorage.setItem('isAdmin', 'true');
+      } else {
+        setLoginError('Invalid username or password.');
+      }
       setIsLoggingIn(false);
-    }
+    }, 600);
   };
 
-  const handleLogout = () => signOut(auth);
+  const handleLogout = () => {
+    setIsAdmin(false);
+    sessionStorage.removeItem('isAdmin');
+  };
 
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,7 +153,7 @@ export default function Admin() {
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!isAdmin) {
     return (
       <div className="min-h-screen bg-[#050B14] flex items-center justify-center p-4">
         <motion.div 
@@ -205,7 +171,37 @@ export default function Admin() {
             </p>
           </div>
 
-          <div className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-widest text-white/40 ml-1">Username</label>
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20" />
+                <input
+                  type="text"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:border-accent-gold outline-none transition-all"
+                  placeholder="Enter username"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-widest text-white/40 ml-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20" />
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:border-accent-gold outline-none transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+
             {loginError && (
               <motion.div 
                 initial={{ opacity: 0, y: -10 }}
@@ -218,36 +214,20 @@ export default function Admin() {
             )}
 
             <button
-              onClick={handleGoogleLogin}
+              type="submit"
               disabled={isLoggingIn}
-              className="w-full bg-white hover:bg-gray-100 text-gray-900 font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg disabled:opacity-50"
+              className="w-full bg-accent-gold hover:bg-white text-[#050B14] font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg disabled:opacity-50"
             >
               {isLoggingIn ? (
-                <div className="w-5 h-5 border-2 border-gray-900 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-5 h-5 border-2 border-[#050B14] border-t-transparent rounded-full animate-spin"></div>
               ) : (
                 <>
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                  </svg>
-                  Sign in with Google
+                  <LogIn className="w-5 h-5" />
+                  Sign In
                 </>
               )}
             </button>
-          </div>
-
-          {!isAdmin && user && (
-            <div className="mt-8 text-center">
-              <p className="text-red-400 text-sm mb-4">
-                Access denied. Your account is not authorized.
-              </p>
-              <button onClick={handleLogout} className="text-white/40 hover:text-white text-sm underline">
-                Sign out and try another account
-              </button>
-            </div>
-          )}
+          </form>
         </motion.div>
       </div>
     );
@@ -269,8 +249,8 @@ export default function Admin() {
           </div>
           <div className="flex items-center gap-6">
             <div className="hidden md:flex flex-col items-end">
-              <span className="text-sm font-medium">{user.displayName}</span>
-              <span className="text-xs text-white/40">{user.email}</span>
+              <span className="text-sm font-medium">Admin User</span>
+              <span className="text-xs text-white/40">adminrodney</span>
             </div>
             <button
               onClick={handleLogout}

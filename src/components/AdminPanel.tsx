@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../lib/firebase';
-import { collection, doc, updateDoc, onSnapshot, query, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, query, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { handleFirestoreError, OperationType } from '../lib/firebase';
 import { MessageCircle, Power, Send } from 'lucide-react';
@@ -42,7 +42,7 @@ export default function AdminPanel() {
 
   const toggleStatus = async () => {
     try {
-      await updateDoc(doc(db, 'adminStatus', 'global'), { isOnline: !isAdminOnline });
+      await setDoc(doc(db, 'adminStatus', 'global'), { isOnline: !isAdminOnline }, { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'adminStatus/global');
     }
@@ -90,13 +90,16 @@ export default function AdminPanel() {
     <div className="p-10 bg-[#050B14] min-h-screen text-white">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Admin Panel</h1>
-        <button 
-          onClick={toggleStatus}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold ${isAdminOnline ? 'bg-green-600' : 'bg-red-600'}`}
-        >
-          <Power className="w-5 h-5" />
-          Admin is {isAdminOnline ? 'Online' : 'Offline'}
-        </button>
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input 
+            type="checkbox" 
+            className="sr-only peer" 
+            checked={isAdminOnline} 
+            onChange={toggleStatus} 
+          />
+          <div className="w-14 h-7 bg-red-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-green-600"></div>
+          <span className="ml-3 text-sm font-bold text-white">Admin is {isAdminOnline ? 'Online' : 'Offline'}</span>
+        </label>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

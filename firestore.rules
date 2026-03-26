@@ -7,7 +7,7 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return isAuthenticated() && request.auth.token.email == "Rodbonds1169@gmail.com";
+      return isAuthenticated() && (request.auth.token.email == "Rodbonds1169@gmail.com" || request.auth.token.email == "adminrodney@rnepremiermobilenotary.com");
     }
 
     // Admin status

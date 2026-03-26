@@ -16,6 +16,7 @@ import Contact from './components/Contact';
 import Footer from './components/Footer';
 import LiveChat from './components/LiveChat';
 import AdminPanel from './components/AdminPanel';
+import { ChatProvider } from './context/ChatContext';
 
 function HomePage() {
   const mainRef = useRef<HTMLElement>(null);
@@ -130,10 +131,12 @@ function HomePage() {
 export default function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/admin" element={<AdminPanel />} />
-      </Routes>
+      <ChatProvider>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/admin" element={<AdminPanel />} />
+        </Routes>
+      </ChatProvider>
     </Router>
   );
 }

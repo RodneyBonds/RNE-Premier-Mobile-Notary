@@ -12,11 +12,8 @@ import Services from './components/Services';
 import About from './components/About';
 import WhyChooseUs from './components/WhyChooseUs';
 import ServiceArea from './components/ServiceArea';
-import Credentials from './components/Credentials';
 import Contact from './components/Contact';
 import Footer from './components/Footer';
-import Admin from './components/Admin';
-import ChatWindow from './components/ChatWindow';
 
 function HomePage() {
   const mainRef = useRef<HTMLElement>(null);
@@ -120,15 +117,9 @@ function HomePage() {
         <About />
         <WhyChooseUs />
         <ServiceArea />
-        <Credentials />
         <Contact />
       </main>
       <Footer />
-      <ChatWindow 
-        isOpen={false} 
-        onClose={() => {}} 
-        visitorInfo={{ name: '', email: '', phone: '' }}
-      />
     </div>
   );
 }
@@ -138,7 +129,6 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/admin" element={<Admin />} />
       </Routes>
     </Router>
   );

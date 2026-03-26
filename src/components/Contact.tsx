@@ -1,70 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, CheckCircle2, X, MessageSquare } from 'lucide-react';
-import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp, onSnapshot, doc } from 'firebase/firestore';
-import ChatWindow from './ChatWindow';
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: any;
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: 'anonymous', // For contact form
-    },
-    operationType,
-    path
-  }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
+import { Send, CheckCircle2, X } from 'lucide-react';
 
 export default function Contact() {
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', message: '' });
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isAdminOnline, setIsAdminOnline] = useState(false);
-
-  React.useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'settings', 'chat'), (snapshot) => {
-      if (snapshot.exists()) {
-        setIsAdminOnline(snapshot.data().isOnline);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const isFormValidForChat = formData.name && formData.email && formData.phone && formData.message;
-
-  const handleStartChat = (e: React.MouseEvent) => {
-    e.preventDefault();
-    // Validate required fields for chat
-    if (!isFormValidForChat) {
-      setErrorMessage('Please fill in all fields to start a live chat.');
-      setStatus('error');
-      return;
-    }
-    window.dispatchEvent(new CustomEvent('open-chat', { 
-      detail: { visitorInfo: formData } 
-    }));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,48 +14,13 @@ export default function Contact() {
     
     setStatus('submitting');
     setErrorMessage(null);
-    try {
-      // 1. Save to Firestore
-      const path = 'messages';
-      try {
-        await addDoc(collection(db, path), {
-          ...formData,
-          createdAt: serverTimestamp(),
-          status: 'unread'
-        });
-      } catch (error) {
-        handleFirestoreError(error, OperationType.CREATE, path);
-      }
-
-      // 2. Send Email Notification via Resend
-      const response = await fetch('/api/send-message', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-      
-      if (!response.ok) {
-        let msg = 'Failed to send email';
-        try {
-          const errorData = await response.json();
-          msg = typeof errorData.error === 'string' ? errorData.error : (errorData.error?.message || msg);
-        } catch (e) {
-          // If not JSON, use the status text
-          msg = `Server error: ${response.status} ${response.statusText}`;
-        }
-        throw new Error(msg);
-      }
-      
-      setStatus('success');
-      setShowModal(true);
-      setFormData({ name: '', phone: '', email: '', message: '' });
-    } catch (error) {
-      console.error('Form submission error:', error);
-      setStatus('error');
-      setErrorMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
-    }
+    
+    // Simulate form submission
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+    setStatus('success');
+    setShowModal(true);
+    setFormData({ name: '', phone: '', email: '', message: '' });
   };
 
   return (
@@ -277,22 +184,6 @@ export default function Contact() {
                       </>
                     )}
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={handleStartChat}
-                    disabled={status === 'submitting' || status === 'success' || !isAdminOnline || !isFormValidForChat}
-                    className={`flex-1 font-semibold px-8 py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group/chat border ${
-                      !isAdminOnline 
-                        ? 'bg-white/5 border-white/10 text-white/20 cursor-not-allowed'
-                        : !isFormValidForChat
-                          ? 'bg-white/5 border-white/10 text-white/40 cursor-not-allowed'
-                          : 'bg-white/5 border-white/10 text-white hover:bg-white/10 hover:border-accent-gold/50 hover:-translate-y-1'
-                    }`}
-                  >
-                    <MessageSquare className={`w-5 h-5 group-hover/chat:scale-110 transition-transform ${isAdminOnline && isFormValidForChat ? 'text-accent-gold' : 'text-white/20'}`} />
-                    {isAdminOnline ? 'LIVE CHAT' : 'CHAT OFFLINE'}
-                  </button>
                 </div>
                 {status === 'error' && (
                   <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
@@ -347,7 +238,7 @@ export default function Contact() {
         </div>
       </div>
 
-      {/* Live Chat Window is now handled globally in App.tsx */}
+      {/* Contact form ends */}
     </section>
   );
 }

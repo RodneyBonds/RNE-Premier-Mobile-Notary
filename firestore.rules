@@ -107,6 +107,10 @@ service cloud.firestore {
       
       // Only admins can delete users
       allow delete: if isAdmin();
+
+      match /integrations/{integrationId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
     }
   }
 }

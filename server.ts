@@ -3,6 +3,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import dotenv from "dotenv";
 import cors from "cors";
+import gmailRoutes from "./gmail-routes.js";
 
 dotenv.config();
 
@@ -20,6 +21,8 @@ async function startServer() {
     console.log(`[${req.method}] ${req.url}`);
     next();
   });
+
+  app.use("/api", gmailRoutes);
 
   // API Route for sending emails via Resend
   app.post("/api/send-message", async (req, res) => {

@@ -16,9 +16,7 @@ import {
   Lock,
   AlertCircle,
   CheckCircle,
-  XCircle,
-  Ban,
-  Inbox
+  Ban
 } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { 
@@ -39,7 +37,6 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { format } from 'date-fns';
-import GmailInbox from './GmailInbox';
 
 interface Reply {
   text: string;
@@ -65,7 +62,6 @@ export default function Admin() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [filter, setFilter] = useState<'active' | 'done' | 'cancelled' | 'all'>('active');
-  const [activeTab, setActiveTab] = useState<'forms' | 'gmail'>('forms');
   
   // Reply state
   const [replyText, setReplyText] = useState('');
@@ -101,12 +97,20 @@ export default function Admin() {
           ...doc.data()
         })) as Message[];
         setMessages(msgs);
+        
+        // Update selected message if it exists in the new messages list
+        if (selectedMessage) {
+          const updated = msgs.find(m => m.id === selectedMessage.id);
+          if (updated) {
+            setSelectedMessage(updated);
+          }
+        }
       }, (error) => {
         console.error("Firestore error:", error);
       });
       return () => unsubscribe();
     }
-  }, [isAdmin, user]);
+  }, [isAdmin, user, selectedMessage?.id]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -327,36 +331,7 @@ export default function Admin() {
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 flex flex-col gap-8">
-        {/* Tab Switcher */}
-        <div className="flex gap-4 border-b border-white/10 pb-4">
-          <button
-            onClick={() => setActiveTab('forms')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${
-              activeTab === 'forms' 
-                ? 'bg-accent-gold text-[#050B14] shadow-lg shadow-accent-gold/20' 
-                : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
-            }`}
-          >
-            <Mail className="w-5 h-5" />
-            Contact Forms
-          </button>
-          <button
-            onClick={() => setActiveTab('gmail')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${
-              activeTab === 'gmail' 
-                ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' 
-                : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
-            }`}
-          >
-            <Inbox className="w-5 h-5" />
-            Gmail Inbox
-          </button>
-        </div>
-
-        {activeTab === 'gmail' ? (
-          <GmailInbox user={user} />
-        ) : (
-          <div className="flex flex-col lg:flex-row gap-8 flex-1">
+        <div className="flex flex-col lg:flex-row gap-8 flex-1">
             {/* Sidebar - Message List */}
             <div className="w-full lg:w-[400px] flex flex-col gap-4">
               <div className="flex flex-col gap-4 mb-2">
@@ -647,7 +622,6 @@ export default function Admin() {
           </AnimatePresence>
         </div>
         </div>
-        )}
       </main>
 
       <style>{`

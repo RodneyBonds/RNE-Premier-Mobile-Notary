@@ -3,7 +3,6 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import dotenv from "dotenv";
 import cors from "cors";
-import gmailRoutes from "./gmail-routes.ts";
 
 dotenv.config();
 
@@ -33,9 +32,6 @@ async function startServer() {
     console.log(`API Request: ${req.method} ${req.path}`);
     next();
   });
-
-  // Mount Gmail routes
-  apiRouter.use(gmailRoutes);
 
   // API Route for sending emails via Resend
   apiRouter.post("/send-message", async (req, res) => {
@@ -142,23 +138,36 @@ async function startServer() {
     console.log(`POST /api/webhooks/inbound request received`);
     try {
       const payload = req.body;
-      console.log('Received webhook payload:', JSON.stringify(payload));
+      console.log('Received webhook payload:', JSON.stringify(payload, null, 2));
       
-      if (payload.type !== 'email.received') {
+      if (!payload || payload.type !== 'email.received') {
+        console.log('Ignored non-email event or empty payload');
         return res.status(200).json({ message: 'Ignored non-email event' });
       }
 
-      const { subject, text, from } = payload.data;
+      const data = payload.data;
+      if (!data) {
+        console.error('No data found in payload');
+        return res.status(400).json({ error: 'No data found in payload' });
+      }
+
+      const { subject, text, from } = data;
+      if (!subject) {
+        console.error('No subject found in email data');
+        return res.status(200).json({ message: 'No subject found' });
+      }
+
       const match = subject.match(/\[Ref:\s*([^\]]+)\]/i);
       if (!match) {
-        console.log('No message ID found in subject:', subject);
+        console.log('No reference ID found in subject:', subject);
         return res.status(200).json({ message: 'No reference ID found' });
       }
 
       const messageId = match[1];
+      console.log(`Processing reply for message ID: ${messageId}`);
 
       // Dynamic import to avoid top-level issues
-      const { initializeApp } = await import('firebase/app');
+      const { initializeApp, getApps, getApp } = await import('firebase/app');
       const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
       const { getFirestore, doc, updateDoc, arrayUnion, Timestamp } = await import('firebase/firestore');
       const fs = await import('fs');
@@ -167,7 +176,8 @@ async function startServer() {
       const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
       const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
-      const firebaseApp = initializeApp(firebaseConfig, 'webhook-app');
+      const apps = getApps();
+      const firebaseApp = apps.find(a => a.name === 'webhook-app') || initializeApp(firebaseConfig, 'webhook-app');
       
       // Helper to get Firestore with fallback
       const getFirestoreWithFallback = (app: any, config: any) => {
@@ -232,7 +242,7 @@ async function startServer() {
     console.log(`404 API Route Not Found: ${req.method} ${req.path}`);
     res.status(404).json({ 
       error: `API route ${req.method} ${req.path} not found`,
-      suggestion: "Check if the route is correctly defined in server.ts or gmail-routes.ts"
+      suggestion: "Check if the route is correctly defined in server.ts"
     });
   });
 

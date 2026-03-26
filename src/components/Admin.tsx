@@ -72,6 +72,22 @@ export default function Admin() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [serverConfig, setServerConfig] = useState<{ hasAdminEmail: boolean; hasAdminPass: boolean; hasResendKey: boolean } | null>(null);
+
+  useEffect(() => {
+    const checkConfig = async () => {
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        if (data.env) {
+          setServerConfig(data.env);
+        }
+      } catch (e) {
+        console.error('Failed to check server config');
+      }
+    };
+    if (isAdmin) checkConfig();
+  }, [isAdmin]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -649,15 +665,24 @@ export default function Admin() {
         </div>
         
         {/* Debug Info (Only for Admin) */}
-        <div className="mt-12 p-6 rounded-2xl bg-white/5 border border-white/10 max-w-4xl mx-auto">
-          <h3 className="text-sm font-bold text-white/50 uppercase tracking-widest mb-4">System Debug Info</h3>
-          <div className="space-y-2 text-xs font-mono text-white/30">
-            <p>Webhook URL: <span className="text-white/60 select-all">https://ais-pre-ektsqthcod4xswgirhkehw-539831521677.asia-southeast1.run.app/api/webhooks/inbound</span></p>
-            <p>Resend Inbound: <span className="text-white/60">{import.meta.env.VITE_RESEND_INBOUND_EMAIL || 'Not Set (Using Default)'}</span></p>
-            <p>Admin Email: <span className="text-white/60">{import.meta.env.VITE_FIREBASE_ADMIN_EMAIL || 'Not Set'}</span></p>
-            <p className="mt-4 text-white/20 italic">Note: Ensure the Webhook URL above is added to your Resend.com dashboard under Webhooks.</p>
-          </div>
-        </div>
+            <div className="mt-12 p-6 rounded-2xl bg-white/5 border border-white/10 max-w-4xl mx-auto">
+              <h3 className="text-sm font-bold text-white/50 uppercase tracking-widest mb-4">System Debug Info</h3>
+              <div className="space-y-2 text-xs font-mono text-white/30">
+                <p>Webhook URL: <span className="text-white/60 select-all">https://ais-pre-ektsqthcod4xswgirhkehw-539831521677.asia-southeast1.run.app/api/webhooks/inbound</span></p>
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  <div className={`p-2 rounded border ${serverConfig?.hasResendKey ? 'border-green-500/20 bg-green-500/5 text-green-400' : 'border-red-500/20 bg-red-500/5 text-red-400'}`}>
+                    Resend API Key: {serverConfig?.hasResendKey ? 'SET' : 'MISSING'}
+                  </div>
+                  <div className={`p-2 rounded border ${serverConfig?.hasAdminEmail ? 'border-green-500/20 bg-green-500/5 text-green-400' : 'border-red-500/20 bg-red-500/5 text-red-400'}`}>
+                    Admin Email: {serverConfig?.hasAdminEmail ? 'SET' : 'MISSING'}
+                  </div>
+                  <div className={`p-2 rounded border ${serverConfig?.hasAdminPass ? 'border-green-500/20 bg-green-500/5 text-green-400' : 'border-red-500/20 bg-red-500/5 text-red-400'}`}>
+                    Admin Password: {serverConfig?.hasAdminPass ? 'SET' : 'MISSING'}
+                  </div>
+                </div>
+                <p className="mt-4 text-white/20 italic">Note: Ensure the Webhook URL above is added to your Resend.com dashboard under Webhooks.</p>
+              </div>
+            </div>
       </main>
 
       <style>{`

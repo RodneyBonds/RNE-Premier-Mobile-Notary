@@ -15,22 +15,30 @@ async function startServer() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // Top-level health check
-  app.get("/api-health", (req, res) => {
-    res.json({ status: "ok", message: "Server is reachable" });
-  });
-
-  // Log all incoming requests for debugging
-  app.use((req, res, next) => {
-    console.log(`[${req.method}] ${req.url}`);
-    next();
-  });
-
+  // API Router definition
   const apiRouter = express.Router();
 
   apiRouter.use((req, res, next) => {
     console.log(`API Request: ${req.method} ${req.path}`);
     next();
+  });
+
+  // Health check
+  apiRouter.get("/health", (req, res) => {
+    res.json({ 
+      status: "ok", 
+      message: "API is alive",
+      env: {
+        hasResendKey: !!(process.env.RESEND_API_KEY || process.env.VITE_RESEND_API_KEY),
+        hasAdminEmail: !!(process.env.FIREBASE_ADMIN_EMAIL || process.env.VITE_FIREBASE_ADMIN_EMAIL),
+        hasAdminPass: !!(process.env.FIREBASE_ADMIN_PASSWORD || process.env.VITE_FIREBASE_ADMIN_PASSWORD)
+      }
+    });
+  });
+
+  // Ping test
+  apiRouter.get("/ping", (req, res) => {
+    res.json({ message: "pong" });
   });
 
   // API Route for sending emails via Resend
@@ -306,15 +314,13 @@ async function startServer() {
     res.json({ status: "ok", message: "API is alive" });
   });
 
-  // Mount the API router
+  // Mount the API router early
   app.use("/api", apiRouter);
 
-  app.get("/api/*", (req, res) => {
-    console.log(`404 API Route Not Found: ${req.method} ${req.path}`);
-    res.status(404).json({ 
-      error: `API route ${req.method} ${req.path} not found`,
-      suggestion: "Check if the route is correctly defined in server.ts"
-    });
+  // Log all other requests for debugging
+  app.use((req, res, next) => {
+    console.log(`[${req.method}] ${req.url}`);
+    next();
   });
 
   // Vite middleware for development

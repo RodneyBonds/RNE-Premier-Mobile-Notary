@@ -72,7 +72,7 @@ export default function Admin() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [serverConfig, setServerConfig] = useState<{ hasAdminEmail: boolean; hasAdminPass: boolean; hasResendKey: boolean } | null>(null);
+  const [serverConfig, setServerConfig] = useState<{ hasAdminEmail: boolean; hasAdminPass: boolean; hasResendKey: boolean; resendKey?: string; adminEmail?: string } | null>(null);
 
   useEffect(() => {
     const checkConfig = async () => {
@@ -495,6 +495,17 @@ export default function Admin() {
                   
                   <div className="flex gap-2">
                     <button
+                      onClick={() => {
+                        // The onSnapshot listener handles real-time updates, 
+                        // but this gives users a manual way to trigger a check
+                        window.location.reload();
+                      }}
+                      className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-all border border-white/10"
+                      title="Refresh Messages"
+                    >
+                      <Clock className="w-5 h-5" />
+                    </button>
+                    <button
                       onClick={async () => {
                         if (!selectedMessage) return;
                         try {
@@ -671,10 +682,10 @@ export default function Admin() {
                 <p>Webhook URL: <span className="text-white/60 select-all">https://ais-pre-ektsqthcod4xswgirhkehw-539831521677.asia-southeast1.run.app/api/webhooks/inbound</span></p>
                 <div className="grid grid-cols-2 gap-2 mt-4">
                   <div className={`p-2 rounded border ${serverConfig?.hasResendKey ? 'border-green-500/20 bg-green-500/5 text-green-400' : 'border-red-500/20 bg-red-500/5 text-red-400'}`}>
-                    Resend API Key: {serverConfig?.hasResendKey ? 'SET' : 'MISSING'}
+                    Resend API Key: {serverConfig?.hasResendKey ? `SET (${serverConfig.resendKey})` : 'MISSING'}
                   </div>
                   <div className={`p-2 rounded border ${serverConfig?.hasAdminEmail ? 'border-green-500/20 bg-green-500/5 text-green-400' : 'border-red-500/20 bg-red-500/5 text-red-400'}`}>
-                    Admin Email: {serverConfig?.hasAdminEmail ? 'SET' : 'MISSING'}
+                    Admin Email: {serverConfig?.hasAdminEmail ? `SET (${serverConfig.adminEmail})` : 'MISSING'}
                   </div>
                   <div className={`p-2 rounded border ${serverConfig?.hasAdminPass ? 'border-green-500/20 bg-green-500/5 text-green-400' : 'border-red-500/20 bg-red-500/5 text-red-400'}`}>
                     Admin Password: {serverConfig?.hasAdminPass ? 'SET' : 'MISSING'}

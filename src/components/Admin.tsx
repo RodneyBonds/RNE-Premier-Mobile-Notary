@@ -3,20 +3,21 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   LogIn, 
   LogOut, 
-  Mail, 
+  Mail,
   Phone, 
   User, 
   Clock, 
   CheckCircle2, 
   Circle, 
-  Reply, 
+  Reply,
   Trash2,
   ChevronRight,
   ShieldCheck,
   Lock,
   AlertCircle,
   CheckCircle,
-  Ban
+  Ban,
+  Activity
 } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { 
@@ -33,15 +34,15 @@ import {
   doc, 
   updateDoc, 
   deleteDoc,
-  arrayUnion,
-  Timestamp
+  Timestamp,
+  arrayUnion
 } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 interface Reply {
   text: string;
   createdAt: any;
-  sender?: 'admin' | 'client';
+  sender: 'admin' | 'client';
 }
 
 interface Message {
@@ -51,7 +52,7 @@ interface Message {
   phone: string;
   message: string;
   createdAt: any;
-  status: 'unread' | 'read' | 'replied' | 'done' | 'cancelled';
+  status: 'unread' | 'read' | 'replied' | 'done' | 'cancelled' | 'ongoing';
   replies?: Reply[];
 }
 
@@ -63,37 +64,16 @@ export default function Admin() {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [filter, setFilter] = useState<'active' | 'done' | 'cancelled' | 'all'>('active');
   
-  // Reply state
-  const [replyText, setReplyText] = useState('');
-  const [isSendingReply, setIsSendingReply] = useState(false);
-  
   // Login states
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [serverConfig, setServerConfig] = useState<{ hasAdminEmail: boolean; hasAdminPass: boolean; hasResendKey: boolean; resendKey?: string; adminEmail?: string; foundKeys?: string[] } | null>(null);
 
-  const checkConfig = async () => {
-    try {
-      const res = await fetch(`/api/health?t=${Date.now()}`);
-      if (!res.ok) {
-        const text = await res.text();
-        console.error(`Server health check failed with status ${res.status}: ${text}`);
-        return;
-      }
-      const data = await res.json();
-      if (data.env) {
-        setServerConfig(data.env);
-      }
-    } catch (e) {
-      console.error('Failed to check server config. Server might be offline or misconfigured.', e);
-    }
-  };
-
-  useEffect(() => {
-    if (isAdmin) checkConfig();
-  }, [isAdmin]);
+  // Reply state
+  const [replyText, setReplyText] = useState('');
+  const [isSendingReply, setIsSendingReply] = useState(false);
+  const [replyStatus, setReplyStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -114,7 +94,6 @@ export default function Admin() {
     if (isAdmin && user) {
       const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        console.log(`Received ${snapshot.docs.length} messages from Firestore`);
         const msgs = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -146,7 +125,7 @@ export default function Admin() {
       await signInWithEmailAndPassword(auth, emailToUse, password);
     } catch (error: any) {
       console.error('Login error:', error);
-      setLoginError('Invalid username or password. Make sure you created the user in Firebase.');
+      setLoginError('Invalid username or password.');
     } finally {
       setIsLoggingIn(false);
     }
@@ -159,16 +138,11 @@ export default function Admin() {
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMessage || !replyText.trim()) return;
-    
+
     setIsSendingReply(true);
+    setReplyStatus(null);
+
     try {
-      const reply = {
-        text: replyText.trim(),
-        createdAt: Timestamp.now(),
-        sender: 'admin'
-      };
-      
-      // Send email via API
       const response = await fetch('/api/send-reply', {
         method: 'POST',
         headers: {
@@ -178,32 +152,37 @@ export default function Admin() {
           messageId: selectedMessage.id,
           name: selectedMessage.name,
           email: selectedMessage.email,
-          replyText: replyText.trim(),
-          originalMessage: selectedMessage.message
+          replyText: replyText,
+          originalMessage: selectedMessage.message,
         }),
       });
 
-      if (!response.ok) {
-        let msg = 'Failed to send email';
-        try {
-          const errorData = await response.json();
-          msg = typeof errorData.error === 'string' ? errorData.error : (errorData.error?.message || msg);
-        } catch (e) {
-          msg = `Server error: ${response.status} ${response.statusText}`;
-        }
-        throw new Error(msg);
-      }
+      const data = await response.json();
 
-      // Save to Firestore
-      await updateDoc(doc(db, 'messages', selectedMessage.id), {
-        replies: arrayUnion(reply),
-        status: 'replied'
-      });
-      
-      setReplyText('');
-    } catch (error) {
-      console.error('Send reply error:', error);
-      alert(error instanceof Error ? error.message : 'Failed to send reply');
+      if (response.ok) {
+        // Update Firestore with the reply
+        const newReply: Reply = {
+          text: replyText,
+          createdAt: Timestamp.now(),
+          sender: 'admin',
+        };
+
+        await updateDoc(doc(db, 'messages', selectedMessage.id), {
+          replies: arrayUnion(newReply),
+          status: 'replied',
+        });
+
+        setReplyText('');
+        setReplyStatus({ type: 'success', message: 'Reply sent successfully!' });
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => setReplyStatus(null), 3000);
+      } else {
+        throw new Error(data.error || 'Failed to send reply');
+      }
+    } catch (error: any) {
+      console.error('Error sending reply:', error);
+      setReplyStatus({ type: 'error', message: error.message || 'Error sending reply' });
     } finally {
       setIsSendingReply(false);
     }
@@ -229,7 +208,7 @@ export default function Admin() {
   };
 
   const filteredMessages = messages.filter(msg => {
-    if (filter === 'active') return ['unread', 'read', 'replied'].includes(msg.status);
+    if (filter === 'active') return ['unread', 'read', 'replied', 'ongoing'].includes(msg.status);
     if (filter === 'done') return msg.status === 'done';
     if (filter === 'cancelled') return msg.status === 'cancelled';
     return true;
@@ -401,6 +380,10 @@ export default function Admin() {
                   statusColorClass = 'bg-green-500/5 border-green-500/20 hover:bg-green-500/10';
                   activeColorClass = 'bg-green-500/20 border-green-500/40 shadow-[0_0_20px_rgba(34,197,94,0.1)]';
                   indicatorColor = 'bg-green-500';
+                } else if (msg.status === 'ongoing') {
+                  statusColorClass = 'bg-blue-500/5 border-blue-500/20 hover:bg-blue-500/10';
+                  activeColorClass = 'bg-blue-500/20 border-blue-500/40 shadow-[0_0_20px_rgba(59,130,246,0.1)]';
+                  indicatorColor = 'bg-blue-500';
                 } else if (msg.status === 'cancelled') {
                   statusColorClass = 'bg-red-500/5 border-red-500/20 hover:bg-red-500/10';
                   activeColorClass = 'bg-red-500/20 border-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.1)]';
@@ -441,10 +424,12 @@ export default function Admin() {
                         {msg.status === 'unread' && <Circle className="w-2 h-2 fill-accent-gold text-accent-gold" />}
                         {msg.status === 'read' && <CheckCircle2 className="w-3 h-3 text-white/30" />}
                         {msg.status === 'replied' && <Reply className="w-3 h-3 text-blue-400" />}
+                        {msg.status === 'ongoing' && <Activity className="w-3 h-3 text-blue-400" />}
                         {msg.status === 'done' && <CheckCircle className="w-3 h-3 text-green-400" />}
                         {msg.status === 'cancelled' && <Ban className="w-3 h-3 text-red-400" />}
                         <span className={`text-[10px] uppercase tracking-wider ${
                           msg.status === 'done' ? 'text-green-400' : 
+                          msg.status === 'ongoing' ? 'text-blue-400' :
                           msg.status === 'cancelled' ? 'text-red-400' : 
                           'text-white/30'
                         }`}>
@@ -453,7 +438,7 @@ export default function Admin() {
                       </div>
                       <ChevronRight className={`w-4 h-4 transition-transform ${
                         selectedMessage?.id === msg.id 
-                          ? (msg.status === 'done' ? 'translate-x-1 text-green-400' : msg.status === 'cancelled' ? 'translate-x-1 text-red-400' : 'translate-x-1 text-accent-gold') 
+                          ? (msg.status === 'done' ? 'translate-x-1 text-green-400' : msg.status === 'ongoing' ? 'translate-x-1 text-blue-400' : msg.status === 'cancelled' ? 'translate-x-1 text-red-400' : 'translate-x-1 text-accent-gold') 
                           : 'text-white/20 group-hover:translate-x-1'
                       }`} />
                     </div>
@@ -501,41 +486,6 @@ export default function Admin() {
                   
                   <div className="flex gap-2">
                     <button
-                      onClick={() => {
-                        // The onSnapshot listener handles real-time updates, 
-                        // but this gives users a manual way to trigger a check
-                        window.location.reload();
-                      }}
-                      className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-all border border-white/10"
-                      title="Refresh Messages"
-                    >
-                      <Clock className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (!selectedMessage) return;
-                        try {
-                          const res = await fetch(`/api/test-webhook/${selectedMessage.id}`);
-                          const text = await res.text();
-                          let data;
-                          try {
-                            data = JSON.parse(text);
-                          } catch (e) {
-                            throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
-                          }
-                          
-                          if (data.success) alert("Test reply simulated! It should appear in the list shortly.");
-                          else alert("Error: " + (data.error || "Unknown error"));
-                        } catch (e) {
-                          alert("Failed: " + (e instanceof Error ? e.message : String(e)));
-                        }
-                      }}
-                      className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border border-white/10 transition-all text-sm font-medium"
-                      title="Test if replies are working"
-                    >
-                      Simulate Reply
-                    </button>
-                    <button
                       onClick={() => deleteMessage(selectedMessage.id)}
                       className="p-3 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all border border-red-500/20"
                       title="Delete Message"
@@ -553,118 +503,140 @@ export default function Admin() {
                     </p>
                   </div>
 
+                  {/* Conversation History */}
                   {selectedMessage.replies && selectedMessage.replies.length > 0 && (
-                    <div className="space-y-6 pt-8 border-t border-white/5">
-                      <h4 className="text-xs uppercase tracking-widest text-white/30 font-bold">Replies</h4>
-                      {selectedMessage.replies.map((reply, idx) => (
-                        <div key={idx} className={`border rounded-xl p-5 relative ${
-                          reply.sender === 'client' 
-                            ? 'bg-white/5 border-white/10 mr-8' 
-                            : 'bg-blue-500/5 border-blue-500/10 ml-8'
-                        }`}>
-                          {reply.sender !== 'client' && (
-                            <div className="absolute -left-4 top-6 w-4 h-[1px] bg-blue-500/20"></div>
-                          )}
-                          <div className="flex justify-between items-center mb-2">
-                            <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                              reply.sender === 'client' ? 'text-white/50' : 'text-blue-400'
+                    <div className="space-y-6 pt-6 border-t border-white/5">
+                      <h4 className="text-xs uppercase tracking-widest text-white/30 mb-4 font-bold">Conversation History</h4>
+                      <div className="space-y-4">
+                        {selectedMessage.replies.map((reply, index) => (
+                          <div 
+                            key={index} 
+                            className={`flex flex-col ${reply.sender === 'admin' ? 'items-end' : 'items-start'}`}
+                          >
+                            <div className={`max-w-[85%] p-4 rounded-2xl ${
+                              reply.sender === 'admin' 
+                                ? 'bg-accent-gold/10 border border-accent-gold/20 text-white' 
+                                : 'bg-white/5 border border-white/10 text-white/80'
                             }`}>
-                              {reply.sender === 'client' ? 'Client Reply' : 'Admin Reply'}
-                            </span>
-                            <span className="text-[10px] text-white/20">
-                              {reply.createdAt ? format(reply.createdAt.toDate(), 'MMM d, h:mm a') : '...'}
-                            </span>
+                              <p className="text-sm whitespace-pre-wrap">{reply.text}</p>
+                              <div className="mt-2 text-[10px] opacity-40 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {reply.createdAt ? format(reply.createdAt.toDate(), 'MMM d, h:mm a') : '...'}
+                                {reply.sender === 'admin' && <span className="ml-1 text-accent-gold">• Sent by Admin</span>}
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-white/70 whitespace-pre-wrap">{reply.text}</p>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   )}
+
+                  {/* Reply Form */}
+                  <div className="mt-auto pt-8 border-t border-white/10">
+                    <form onSubmit={handleSendReply} className="space-y-4">
+                      <div className="relative">
+                        <textarea
+                          value={replyText}
+                          onChange={(e) => {
+                            setReplyText(e.target.value);
+                            if (replyStatus) setReplyStatus(null);
+                          }}
+                          placeholder="Type your reply here..."
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 text-white focus:border-accent-gold outline-none transition-all min-h-[150px] resize-none placeholder:text-white/20"
+                          disabled={isSendingReply}
+                        />
+                        <div className="absolute bottom-4 right-4 flex items-center gap-4">
+                          {replyStatus && (
+                            <span className={`text-xs ${replyStatus.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                              {replyStatus.message}
+                            </span>
+                          )}
+                          <button
+                            type="submit"
+                            disabled={isSendingReply || !replyText.trim()}
+                            className="bg-accent-gold hover:bg-white text-[#050B14] font-bold px-6 py-3 rounded-xl transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                          >
+                            {isSendingReply ? (
+                              <div className="w-4 h-4 border-2 border-[#050B14] border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <>
+                                <Reply className="w-4 h-4" />
+                                Send Reply
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-white/20 px-2">
+                        Replies will be sent to <strong>{selectedMessage.email}</strong> via Resend.
+                      </p>
+                    </form>
+                  </div>
                 </div>
 
-                <form onSubmit={handleSendReply} className="space-y-4">
-                  <div className="relative">
-                    <textarea
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      placeholder="Type your reply here..."
-                      rows={3}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-white focus:border-accent-gold outline-none transition-all resize-none placeholder:text-white/20"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isSendingReply || !replyText.trim()}
-                      className="absolute bottom-4 right-4 bg-accent-gold hover:bg-accent-gold-dark text-[#050B14] p-3 rounded-xl transition-all shadow-lg shadow-accent-gold/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isSendingReply ? (
-                        <div className="w-5 h-5 border-2 border-[#050B14] border-t-transparent rounded-full animate-spin"></div>
-                      ) : (
-                        <Reply className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
-                  
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <a
-                      href={`mailto:${selectedMessage.email}?subject=Re: Contact Form Submission - RNE Premier`}
-                      onClick={() => updateStatus(selectedMessage.id, 'replied')}
-                      className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-3 border border-white/10"
-                    >
-                      <Mail className="w-5 h-5" />
-                      Open in Email Client
-                    </a>
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex flex-wrap gap-2">
+                    {/* Mark as Read */}
+                    {selectedMessage.status === 'unread' && (
+                      <button
+                        type="button"
+                        onClick={() => updateStatus(selectedMessage.id, 'read')}
+                        className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 border border-white/10 transition-all text-sm font-medium flex items-center gap-2"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Mark as Read
+                      </button>
+                    )}
                     
-                    <div className="flex flex-wrap gap-2">
-                      {/* Mark as Replied/Read */}
-                      {selectedMessage.status !== 'replied' && selectedMessage.status !== 'done' && selectedMessage.status !== 'cancelled' && (
-                        <button
-                          type="button"
-                          onClick={() => updateStatus(selectedMessage.id, 'replied')}
-                          className="px-4 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition-all text-sm font-medium flex items-center gap-2"
-                        >
-                          <Reply className="w-4 h-4" />
-                          Replied
-                        </button>
-                      )}
-                      
-                      {/* Mark as Done */}
-                      {selectedMessage.status !== 'done' && (
-                        <button
-                          type="button"
-                          onClick={() => updateStatus(selectedMessage.id, 'done')}
-                          className="px-4 py-2 rounded-xl bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 transition-all text-sm font-medium flex items-center gap-2"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          Done
-                        </button>
-                      )}
+                    {/* Mark as Done */}
+                    {selectedMessage.status !== 'done' && (
+                      <button
+                        type="button"
+                        onClick={() => updateStatus(selectedMessage.id, 'done')}
+                        className="px-4 py-2 rounded-xl bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 transition-all text-sm font-medium flex items-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Done
+                      </button>
+                    )}
 
-                      {/* Mark as Cancelled */}
-                      {selectedMessage.status !== 'cancelled' && (
-                        <button
-                          type="button"
-                          onClick={() => updateStatus(selectedMessage.id, 'cancelled')}
-                          className="px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all text-sm font-medium flex items-center gap-2"
-                        >
-                          <Ban className="w-4 h-4" />
-                          Cancelled
-                        </button>
-                      )}
-                      
-                      {/* Mark as Active/Read (if currently done or cancelled) */}
-                      {(selectedMessage.status === 'done' || selectedMessage.status === 'cancelled') && (
-                        <button
-                          type="button"
-                          onClick={() => updateStatus(selectedMessage.id, 'read')}
-                          className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-sm font-medium flex items-center gap-2 text-white/70"
-                        >
-                          <Clock className="w-4 h-4" />
-                          Reopen
-                        </button>
-                      )}
-                    </div>
+                    {/* Mark as Ongoing */}
+                    {selectedMessage.status !== 'ongoing' && selectedMessage.status !== 'done' && selectedMessage.status !== 'cancelled' && (
+                      <button
+                        type="button"
+                        onClick={() => updateStatus(selectedMessage.id, 'ongoing')}
+                        className="px-4 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition-all text-sm font-medium flex items-center gap-2"
+                      >
+                        <Activity className="w-4 h-4" />
+                        On-going
+                      </button>
+                    )}
+
+                    {/* Mark as Cancelled */}
+                    {selectedMessage.status !== 'cancelled' && (
+                      <button
+                        type="button"
+                        onClick={() => updateStatus(selectedMessage.id, 'cancelled')}
+                        className="px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all text-sm font-medium flex items-center gap-2"
+                      >
+                        <Ban className="w-4 h-4" />
+                        Cancelled
+                      </button>
+                    )}
+                    
+                    {/* Mark as Active/Read (if currently done or cancelled) */}
+                    {(selectedMessage.status === 'done' || selectedMessage.status === 'cancelled') && (
+                      <button
+                        type="button"
+                        onClick={() => updateStatus(selectedMessage.id, 'read')}
+                        className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-sm font-medium flex items-center gap-2 text-white/70"
+                      >
+                        <Clock className="w-4 h-4" />
+                        Reopen
+                      </button>
+                    )}
                   </div>
-                </form>
+                </div>
               </motion.div>
             ) : (
               <div className="h-full bg-white/[0.01] border border-dashed border-white/10 rounded-[2rem] flex flex-col items-center justify-center text-center p-12">
@@ -680,66 +652,6 @@ export default function Admin() {
           </AnimatePresence>
         </div>
         </div>
-        
-        {/* Debug Info (Only for Admin) */}
-            <div className="mt-12 p-6 rounded-2xl bg-white/5 border border-white/10 max-w-4xl mx-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-bold text-white/50 uppercase tracking-widest">System Debug Info</h3>
-                <button 
-                  onClick={checkConfig}
-                  className="text-[10px] text-accent-gold hover:underline"
-                >
-                  Refresh Status
-                </button>
-              </div>
-              <div className="space-y-4 text-xs font-mono text-white/30">
-                <div className="space-y-2">
-                  <p className="text-white/50 font-bold">LIVE SITE WEBHOOK (Use this in Resend.com):</p>
-                  <p className="p-2 rounded bg-white/5 text-accent-gold select-all border border-accent-gold/20">
-                    https://rnepremiermobilenotary.com/api/webhooks/inbound
-                  </p>
-                </div>
-                
-                <div className="space-y-2 opacity-50">
-                  <p>PREVIEW WEBHOOK (Only for AI Studio testing):</p>
-                  <p className="p-2 rounded bg-white/5 text-white/60 select-all border border-white/10">
-                    https://ais-pre-ektsqthcod4xswgirhkehw-539831521677.asia-southeast1.run.app/api/webhooks/inbound
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 mt-4">
-                  <div className={`p-2 rounded border ${serverConfig?.hasResendKey ? 'border-green-500/20 bg-green-500/5 text-green-400' : 'border-red-500/20 bg-red-500/5 text-red-400'}`}>
-                    Resend API Key: {serverConfig?.hasResendKey ? `SET (${serverConfig.resendKey})` : 'MISSING'}
-                  </div>
-                  <div className={`p-2 rounded border ${serverConfig?.hasAdminEmail ? 'border-green-500/20 bg-green-500/5 text-green-400' : 'border-red-500/20 bg-red-500/5 text-red-400'}`}>
-                    Admin Email: {serverConfig?.hasAdminEmail ? `SET (${serverConfig.adminEmail})` : 'MISSING'}
-                  </div>
-                  <div className={`p-2 rounded border ${serverConfig?.hasAdminPass ? 'border-green-500/20 bg-green-500/5 text-green-400' : 'border-red-500/20 bg-red-500/5 text-red-400'}`}>
-                    Admin Password: {serverConfig?.hasAdminPass ? 'SET' : 'MISSING'}
-                  </div>
-                  <div className="p-2 rounded border border-white/10 bg-white/5 text-white/40">
-                    Keys Found: {serverConfig?.foundKeys?.length ? serverConfig.foundKeys.join(', ') : 'NONE'}
-                  </div>
-                </div>
-
-                {!serverConfig?.hasResendKey && (
-                  <div className="mt-6 p-4 rounded-xl bg-accent-gold/10 border border-accent-gold/20 text-accent-gold">
-                    <h4 className="font-bold mb-2 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4" />
-                      Vercel Setup Required
-                    </h4>
-                    <p className="text-[10px] leading-relaxed opacity-80">
-                      Since you are using Vercel, you must add these keys to your <strong>Vercel Dashboard</strong> under <strong>Settings &gt; Environment Variables</strong>. 
-                      <br /><br />
-                      1. Add <strong>RESEND_API_KEY</strong>, <strong>FIREBASE_ADMIN_EMAIL</strong>, and <strong>FIREBASE_ADMIN_PASSWORD</strong>.
-                      <br />
-                      2. <strong>Redeploy</strong> your project in Vercel to apply the changes.
-                    </p>
-                  </div>
-                )}
-                <p className="mt-4 text-white/20 italic">Note: Ensure the Webhook URL above is added to your Resend.com dashboard under Webhooks.</p>
-              </div>
-            </div>
       </main>
 
       <style>{`

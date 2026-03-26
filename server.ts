@@ -6,32 +6,27 @@ import cors from "cors";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import fs from "fs";
+import admin from 'firebase-admin';
 import { Resend } from "resend";
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, doc, updateDoc, arrayUnion, Timestamp, onSnapshot, getDoc } from 'firebase/firestore';
 
 dotenv.config();
 
-// Initialize Firebase for the server
+// Initialize Firebase Admin for the server
 const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
 const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-const firebaseApp = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    projectId: firebaseConfig.projectId,
+  });
+}
+
 const db = firebaseConfig.firestoreDatabaseId 
-  ? getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId) 
-  : getFirestore(firebaseApp);
-const auth = getAuth(firebaseApp);
+  ? admin.firestore(firebaseConfig.firestoreDatabaseId)
+  : admin.firestore();
 
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
-
-// Sign in as admin on startup
-const adminEmail = process.env.FIREBASE_ADMIN_EMAIL || 'adminrodney@rnepremiermobilenotary.com';
-const adminPassword = process.env.FIREBASE_ADMIN_PASSWORD || 'passrodney';
-
-signInWithEmailAndPassword(auth, adminEmail, adminPassword)
-  .then(() => console.log("Server authenticated as admin"))
-  .catch(err => console.error("Server admin auth failed:", err));
 
 async function startServer() {
   console.log("Starting server...");
@@ -321,8 +316,15 @@ async function startServer() {
         html: emailHtml,
       });
 
+      // Update Firestore to close the chat (Admin SDK bypasses security rules)
+      await db.collection('messages').doc(sessionId).update({
+        chatStatus: 'closed',
+        status: 'done'
+      });
+
       res.status(200).json({ success: true });
     } catch (error) {
+      console.error('Error transitioning to email:', error);
       res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });
@@ -360,71 +362,27 @@ async function startServer() {
       const messageId = match[1];
       console.log(`Processing reply for message ID: ${messageId}`);
 
-      // Dynamic import to avoid top-level issues
-      const { initializeApp, getApps } = await import('firebase/app');
-      const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
-      const { getFirestore, doc, updateDoc, arrayUnion, Timestamp, getDoc } = await import('firebase/firestore');
-      const fs = await import('fs');
-      const path = await import('path');
-
-      const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-      const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-
-      const apps = getApps();
-      const firebaseApp = apps.find(a => a.name === 'webhook-app') || initializeApp(firebaseConfig, 'webhook-app');
-      
-      // Helper to get Firestore with fallback
-      const getFirestoreWithFallback = (app: any, config: any) => {
-        try {
-          if (config.firestoreDatabaseId) {
-            return getFirestore(app, config.firestoreDatabaseId);
-          }
-        } catch (e) {
-          console.warn('Failed to initialize Firestore with custom ID in webhook, falling back to (default)', e);
-        }
-        return getFirestore(app);
-      };
-
-      const db = getFirestoreWithFallback(firebaseApp, firebaseConfig);
-      const auth = getAuth(firebaseApp);
-
-      const adminEmail = process.env.FIREBASE_ADMIN_EMAIL || 'adminrodney@rnepremiermobilenotary.com';
-      const adminPassword = process.env.FIREBASE_ADMIN_PASSWORD || 'passrodney';
-      
-      console.log(`Signing in as admin: ${adminEmail}`);
-      const userCredential = await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-      console.log(`Signed in successfully as: ${userCredential.user.email} (UID: ${userCredential.user.uid})`);
-      
       const reply = {
         text: text || 'No text content',
-        createdAt: Timestamp.now(),
+        createdAt: admin.firestore.Timestamp.now(),
         sender: 'client',
         fromEmail: from || 'unknown'
       };
 
       console.log(`Updating document ${messageId} with reply from ${from}`);
       
-      const docRef = doc(db, 'messages', messageId);
-      const docSnap = await getDoc(docRef);
+      const docRef = db.collection('messages').doc(messageId);
+      const docSnap = await docRef.get();
       
-      if (!docSnap.exists()) {
+      if (!docSnap.exists) {
         console.error(`Message document with ID ${messageId} not found in Firestore`);
         return res.status(404).json({ error: `Message ${messageId} not found` });
       }
 
-      try {
-        await updateDoc(docRef, {
-          replies: arrayUnion(reply),
-          status: 'unread'
-        });
-      } catch (fsError: any) {
-        console.error('Firestore Update Error Details:', {
-          code: fsError.code,
-          message: fsError.message,
-          stack: fsError.stack
-        });
-        throw fsError;
-      }
+      await docRef.update({
+        replies: admin.firestore.FieldValue.arrayUnion(reply),
+        status: 'unread'
+      });
 
       console.log('Document updated successfully');
       return res.status(200).json({ success: true });
@@ -440,61 +398,24 @@ async function startServer() {
     console.log(`Simulating webhook for message: ${messageId}`);
     
     try {
-      // Dynamic import to avoid top-level issues
-      const { initializeApp, getApps } = await import('firebase/app');
-      const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
-      const { getFirestore, doc, updateDoc, arrayUnion, Timestamp, getDoc } = await import('firebase/firestore');
-      const fs = await import('fs');
-      const path = await import('path');
-
-      const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-      const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-
-      const apps = getApps();
-      const firebaseApp = apps.find(a => a.name === 'test-app') || initializeApp(firebaseConfig, 'test-app');
-      
-      const getFirestoreWithFallback = (app: any, config: any) => {
-        if (config.firestoreDatabaseId) return getFirestore(app, config.firestoreDatabaseId);
-        return getFirestore(app);
-      };
-
-      const db = getFirestoreWithFallback(firebaseApp, firebaseConfig);
-      const auth = getAuth(firebaseApp);
-
-      const adminEmail = process.env.FIREBASE_ADMIN_EMAIL || 'adminrodney@rnepremiermobilenotary.com';
-      const adminPassword = process.env.FIREBASE_ADMIN_PASSWORD || 'passrodney';
-      
-      console.log(`Signing in as admin for test: ${adminEmail}`);
-      const userCredential = await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-      console.log(`Signed in successfully for test: ${userCredential.user.email} (UID: ${userCredential.user.uid})`);
-
       const reply = {
         text: "This is a TEST reply simulated from the server.",
-        createdAt: Timestamp.now(),
+        createdAt: admin.firestore.Timestamp.now(),
         sender: 'client',
         fromEmail: 'test@example.com'
       };
 
-      const docRef = doc(db, 'messages', messageId);
-      const docSnap = await getDoc(docRef);
+      const docRef = db.collection('messages').doc(messageId);
+      const docSnap = await docRef.get();
       
-      if (!docSnap.exists()) {
+      if (!docSnap.exists) {
         return res.status(404).json({ error: `Message ${messageId} not found. Make sure the ID is correct.` });
       }
 
-      try {
-        await updateDoc(docRef, {
-          replies: arrayUnion(reply),
-          status: 'unread'
-        });
-      } catch (fsError: any) {
-        console.error('Firestore Test Update Error Details:', {
-          code: fsError.code,
-          message: fsError.message,
-          stack: fsError.stack
-        });
-        throw fsError;
-      }
+      await docRef.update({
+        replies: admin.firestore.FieldValue.arrayUnion(reply),
+        status: 'unread'
+      });
 
       res.json({ success: true, message: "Test reply added successfully. Check your admin panel!" });
     } catch (error) {
@@ -542,10 +463,10 @@ async function startServer() {
       // Manage shared Firestore listener for this session
       if (!sessionListeners.has(sessionId)) {
         console.log(`Creating new Firestore listener for session: ${sessionId}`);
-        const unsubscribe = onSnapshot(doc(db, "messages", sessionId), (snapshot) => {
-          if (snapshot.exists()) {
+        const unsubscribe = db.collection("messages").doc(sessionId).onSnapshot((snapshot) => {
+          if (snapshot.exists) {
             const data = snapshot.data();
-            if (data.replies) {
+            if (data && data.replies) {
               console.log(`Broadcasting chat-update for session ${sessionId} with ${data.replies.length} messages`);
               io.to(sessionId).emit("chat-update", data.replies);
             }
@@ -562,10 +483,10 @@ async function startServer() {
         console.log(`Reusing listener for session ${sessionId}, count: ${listener.count}`);
         
         // Send initial data to the new socket immediately
-        getDoc(doc(db, "messages", sessionId)).then(snap => {
-          if (snap.exists()) {
+        db.collection("messages").doc(sessionId).get().then(snap => {
+          if (snap.exists) {
             const data = snap.data();
-            if (data.replies) {
+            if (data && data.replies) {
               socket.emit("chat-update", data.replies);
             }
           }
@@ -593,12 +514,12 @@ async function startServer() {
 
         const newReply = {
           text,
-          createdAt: Timestamp.now(),
+          createdAt: admin.firestore.Timestamp.now(),
           sender,
         };
 
-        await updateDoc(doc(db, "messages", sessionId), {
-          replies: arrayUnion(newReply),
+        await db.collection("messages").doc(sessionId).update({
+          replies: admin.firestore.FieldValue.arrayUnion(newReply),
           status: 'unread' // Mark as unread for admin
         });
         

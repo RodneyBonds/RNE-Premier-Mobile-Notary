@@ -14,13 +14,28 @@ export default function Contact() {
     
     setStatus('submitting');
     setErrorMessage(null);
-    
-    // Simulate form submission
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    setStatus('success');
-    setShowModal(true);
-    setFormData({ name: '', phone: '', email: '', message: '' });
+    try {
+      const response = await fetch('/api/send-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send message');
+      }
+      
+      setStatus('success');
+      setShowModal(true);
+      setFormData({ name: '', phone: '', email: '', message: '' });
+    } catch (error) {
+      console.error('Form submission error:', error);
+      setStatus('error');
+      setErrorMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
+    }
   };
 
   return (

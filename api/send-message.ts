@@ -15,11 +15,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'Contact Form <onboarding@resend.dev>';
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'rodney@rnepremiermobilenotary.com';
 
     const { data, error } = await resend.emails.send({
       from: fromEmail,
-      to: ['rodneyrnepremiermobilenotary@gmail.com'],
+      to: ['rodney@rnepremiermobilenotary.com'],
       replyTo: email,
       subject: `New Contact Form: ${name}`,
       html: `

@@ -55,14 +55,20 @@ export default function GmailInbox({ user }: { user: any }) {
 
   const handleConnect = async () => {
     try {
+      setError('');
       const redirectUri = `${window.location.origin}/api/auth/google/callback`;
       const res = await fetch(`/api/auth/google/url?redirectUri=${encodeURIComponent(redirectUri)}&uid=${user.uid}`);
-      const { url } = await res.json();
       
-      const authWindow = window.open(url, 'oauth_popup', 'width=600,height=700');
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to get auth URL. Please check your Google OAuth credentials in Settings.');
+      }
+      
+      const authWindow = window.open(data.url, 'oauth_popup', 'width=600,height=700');
       
       if (!authWindow) {
-        alert('Please allow popups to connect your Gmail account.');
+        setError('Please allow popups to connect your Gmail account.');
         return;
       }
 
@@ -73,8 +79,9 @@ export default function GmailInbox({ user }: { user: any }) {
         }
       };
       window.addEventListener('message', handleMessage);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to get auth URL:', err);
+      setError(err.message);
     }
   };
 
@@ -178,6 +185,14 @@ export default function GmailInbox({ user }: { user: any }) {
         <p className="text-white/50 text-center max-w-md mb-8">
           Connect your Gmail account to read and reply to all your emails directly from the Admin Panel.
         </p>
+        
+        {error && (
+          <div className="mb-6 flex items-start gap-3 text-red-400 text-sm bg-red-400/10 p-4 rounded-xl border border-red-400/20 max-w-md">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            <p>{error}</p>
+          </div>
+        )}
+
         <button
           onClick={handleConnect}
           className="bg-white text-[#050B14] hover:bg-gray-200 font-bold py-4 px-8 rounded-xl transition-all flex items-center gap-3 shadow-lg"

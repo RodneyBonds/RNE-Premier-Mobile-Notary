@@ -31,7 +31,7 @@ export default async function handler(req: any, res: any) {
     const { data, error } = await resend.emails.send({
       from: 'RNE Premier Contact Form <onboarding@resend.dev>',
       to: ['rodneyrnepremiermobilenotary@gmail.com'],
-      reply_to: email,
+      replyTo: email,
       subject: `New Contact Form: ${name}`,
       html: `
         <h2>New Message from Contact Form</h2>

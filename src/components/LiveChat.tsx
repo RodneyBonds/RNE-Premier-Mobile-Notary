@@ -34,6 +34,7 @@ export default function LiveChat() {
       const messagesRef = collection(db, 'chatSessions', sessionId, 'messages');
       const q = query(messagesRef, orderBy('timestamp', 'asc'));
       const unsubMessages = onSnapshot(q, (snapshot) => {
+        console.log('LiveChat messages updated:', snapshot.docs.length);
         setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       });
       return () => unsubMessages();

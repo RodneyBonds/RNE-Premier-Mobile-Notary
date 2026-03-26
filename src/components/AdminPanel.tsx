@@ -87,9 +87,9 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="p-10 bg-[#050B14] min-h-screen text-white">
+    <div className="p-10 bg-[#111111] min-h-screen text-white">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Admin Panel</h1>
+        <h1 className="text-3xl font-bold text-white">Admin Panel</h1>
         <label className="relative inline-flex items-center cursor-pointer">
           <input 
             type="checkbox" 
@@ -103,31 +103,32 @@ export default function AdminPanel() {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 bg-[#0A111E] p-6 rounded-3xl border border-white/10">
-          <h2 className="text-xl font-bold mb-4">Chat Sessions</h2>
+        <div className="lg:col-span-1 bg-[#1A1A1A] p-6 rounded-3xl border border-[#D4AF37]/20">
+          <h2 className="text-xl font-bold mb-4 text-white">Chat Sessions</h2>
           <div className="space-y-2">
             {sessions.map(session => (
               <button 
                 key={session.id}
                 onClick={() => setSelectedSession(session)}
-                className={`w-full text-left p-4 rounded-xl ${selectedSession?.id === session.id ? 'bg-accent-gold/20' : 'bg-white/5'}`}
+                className={`w-full text-left p-4 rounded-xl border ${selectedSession?.id === session.id ? 'bg-[#D4AF37]/20 border-[#D4AF37]' : 'bg-[#111111] border-white/10'}`}
               >
-                <div className="font-bold">{session.name}</div>
+                <div className="font-bold text-white">{session.name}</div>
                 <div className="text-sm text-white/60">{session.email}</div>
               </button>
             ))}
           </div>
         </div>
         
-        <div className="lg:col-span-2 bg-[#0A111E] p-6 rounded-3xl border border-white/10 flex flex-col h-[600px]">
+        <div className="lg:col-span-2 bg-[#1A1A1A] p-6 rounded-3xl border border-[#D4AF37]/20 flex flex-col h-[600px]">
           {selectedSession ? (
             <>
-              <h2 className="text-xl font-bold mb-4">Chat with {selectedSession.name}</h2>
+              <h2 className="text-xl font-bold mb-4 text-white">Chat with {selectedSession.name}</h2>
               <div className="flex-1 overflow-y-auto space-y-4 mb-4">
                 {messages.map(msg => (
-                  <div key={msg.id} className={msg.senderId === 'admin' ? 'text-right' : 'text-left'}>
-                    <div className={`inline-block p-3 rounded-2xl ${msg.senderId === 'admin' ? 'bg-accent-gold text-[#050B14]' : 'bg-white/10'}`}>
+                  <div key={msg.id} className={`flex ${msg.senderId === 'admin' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.senderId === 'admin' ? 'bg-[#D4AF37] text-[#111111] rounded-br-none' : 'bg-[#111111] text-white rounded-bl-none border border-white/10'}`}>
                       {msg.text}
+                      <div className="text-[10px] opacity-50 mt-1">{msg.timestamp?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                     </div>
                   </div>
                 ))}
@@ -137,11 +138,11 @@ export default function AdminPanel() {
                   type="text" 
                   value={reply} 
                   onChange={e => setReply(e.target.value)}
-                  className="flex-1 p-3 rounded-xl bg-white/5 border border-white/10 text-white"
+                  className="flex-1 p-3 rounded-xl bg-[#111111] border border-white/10 text-white focus:border-[#D4AF37] outline-none"
                   placeholder="Type a reply..."
                   onKeyDown={e => { if(e.key === 'Enter') sendReply(); }}
                 />
-                <button onClick={sendReply} className="bg-accent-gold p-3 rounded-xl text-[#050B14]"><Send /></button>
+                <button onClick={sendReply} className="bg-[#D4AF37] p-3 rounded-xl text-[#111111] hover:bg-[#B8962D] transition-colors"><Send /></button>
               </div>
             </>
           ) : (

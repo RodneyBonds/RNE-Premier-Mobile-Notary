@@ -72,20 +72,21 @@ export default function Admin() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [serverConfig, setServerConfig] = useState<{ hasAdminEmail: boolean; hasAdminPass: boolean; hasResendKey: boolean; resendKey?: string; adminEmail?: string } | null>(null);
+  const [serverConfig, setServerConfig] = useState<{ hasAdminEmail: boolean; hasAdminPass: boolean; hasResendKey: boolean; resendKey?: string; adminEmail?: string; foundKeys?: string[] } | null>(null);
+
+  const checkConfig = async () => {
+    try {
+      const res = await fetch(`/api/health?t=${Date.now()}`);
+      const data = await res.json();
+      if (data.env) {
+        setServerConfig(data.env);
+      }
+    } catch (e) {
+      console.error('Failed to check server config');
+    }
+  };
 
   useEffect(() => {
-    const checkConfig = async () => {
-      try {
-        const res = await fetch('/api/health');
-        const data = await res.json();
-        if (data.env) {
-          setServerConfig(data.env);
-        }
-      } catch (e) {
-        console.error('Failed to check server config');
-      }
-    };
     if (isAdmin) checkConfig();
   }, [isAdmin]);
 
@@ -677,7 +678,15 @@ export default function Admin() {
         
         {/* Debug Info (Only for Admin) */}
             <div className="mt-12 p-6 rounded-2xl bg-white/5 border border-white/10 max-w-4xl mx-auto">
-              <h3 className="text-sm font-bold text-white/50 uppercase tracking-widest mb-4">System Debug Info</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-sm font-bold text-white/50 uppercase tracking-widest">System Debug Info</h3>
+                <button 
+                  onClick={checkConfig}
+                  className="text-[10px] text-accent-gold hover:underline"
+                >
+                  Refresh Status
+                </button>
+              </div>
               <div className="space-y-4 text-xs font-mono text-white/30">
                 <div className="space-y-2">
                   <p className="text-white/50 font-bold">LIVE SITE WEBHOOK (Use this in Resend.com):</p>
@@ -703,7 +712,26 @@ export default function Admin() {
                   <div className={`p-2 rounded border ${serverConfig?.hasAdminPass ? 'border-green-500/20 bg-green-500/5 text-green-400' : 'border-red-500/20 bg-red-500/5 text-red-400'}`}>
                     Admin Password: {serverConfig?.hasAdminPass ? 'SET' : 'MISSING'}
                   </div>
+                  <div className="p-2 rounded border border-white/10 bg-white/5 text-white/40">
+                    Keys Found: {serverConfig?.foundKeys?.length ? serverConfig.foundKeys.join(', ') : 'NONE'}
+                  </div>
                 </div>
+
+                {!serverConfig?.hasResendKey && (
+                  <div className="mt-6 p-4 rounded-xl bg-accent-gold/10 border border-accent-gold/20 text-accent-gold">
+                    <h4 className="font-bold mb-2 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      Vercel Setup Required
+                    </h4>
+                    <p className="text-[10px] leading-relaxed opacity-80">
+                      Since you are using Vercel, you must add these keys to your <strong>Vercel Dashboard</strong> under <strong>Settings &gt; Environment Variables</strong>. 
+                      <br /><br />
+                      1. Add <strong>RESEND_API_KEY</strong>, <strong>FIREBASE_ADMIN_EMAIL</strong>, and <strong>FIREBASE_ADMIN_PASSWORD</strong>.
+                      <br />
+                      2. <strong>Redeploy</strong> your project in Vercel to apply the changes.
+                    </p>
+                  </div>
+                )}
                 <p className="mt-4 text-white/20 italic">Note: Ensure the Webhook URL above is added to your Resend.com dashboard under Webhooks.</p>
               </div>
             </div>

@@ -26,6 +26,17 @@ async function startServer() {
   // Health check
   apiRouter.get("/health", (req, res) => {
     const mask = (val: string | undefined) => val ? `${val.substring(0, 3)}...` : null;
+    
+    // List of keys we are looking for
+    const searchKeys = [
+      "RESEND_API_KEY", "VITE_RESEND_API_KEY",
+      "FIREBASE_ADMIN_EMAIL", "VITE_FIREBASE_ADMIN_EMAIL",
+      "FIREBASE_ADMIN_PASSWORD", "VITE_FIREBASE_ADMIN_PASSWORD"
+    ];
+    
+    // Find which ones actually exist in process.env
+    const foundKeys = Object.keys(process.env).filter(k => searchKeys.includes(k));
+
     res.json({ 
       status: "ok", 
       message: "API is alive",
@@ -34,7 +45,8 @@ async function startServer() {
         hasAdminEmail: !!(process.env.FIREBASE_ADMIN_EMAIL || process.env.VITE_FIREBASE_ADMIN_EMAIL),
         hasAdminPass: !!(process.env.FIREBASE_ADMIN_PASSWORD || process.env.VITE_FIREBASE_ADMIN_PASSWORD),
         resendKey: mask(process.env.RESEND_API_KEY || process.env.VITE_RESEND_API_KEY),
-        adminEmail: mask(process.env.FIREBASE_ADMIN_EMAIL || process.env.VITE_FIREBASE_ADMIN_EMAIL)
+        adminEmail: mask(process.env.FIREBASE_ADMIN_EMAIL || process.env.VITE_FIREBASE_ADMIN_EMAIL),
+        foundKeys: foundKeys
       }
     });
   });

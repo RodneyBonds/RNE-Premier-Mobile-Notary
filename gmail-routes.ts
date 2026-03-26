@@ -8,6 +8,8 @@ import path from 'path';
 
 const router = Router();
 
+console.log('Gmail routes initialized');
+
 // Helper to get Firebase instance
 const getFirebase = () => {
   const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
@@ -42,9 +44,11 @@ const getOAuth2Client = (redirectUri: string) => {
 
 // 1. Generate Auth URL
 router.get('/auth/google/url', (req, res) => {
+  console.log('GET /api/auth/google/url hit');
   const { redirectUri, uid } = req.query;
   
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    console.error('Google OAuth credentials missing in environment');
     return res.status(500).json({ error: 'Google OAuth credentials not configured' });
   }
 

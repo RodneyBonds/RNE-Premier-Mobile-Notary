@@ -16,6 +16,11 @@ async function startServer() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
+  // Top-level health check
+  app.get("/api-health", (req, res) => {
+    res.json({ status: "ok", message: "Server is reachable" });
+  });
+
   // Log all incoming requests for debugging
   app.use((req, res, next) => {
     console.log(`[${req.method}] ${req.url}`);
@@ -25,11 +30,12 @@ async function startServer() {
   const apiRouter = express.Router();
 
   apiRouter.use((req, res, next) => {
-    console.log(`API Request: ${req.method} ${req.url}`);
+    console.log(`API Request: ${req.method} ${req.path}`);
     next();
   });
 
-  apiRouter.use("/", gmailRoutes);
+  // Mount Gmail routes
+  apiRouter.use(gmailRoutes);
 
   // API Route for sending emails via Resend
   apiRouter.post("/send-message", async (req, res) => {
@@ -219,12 +225,16 @@ async function startServer() {
     res.json({ status: "ok", message: "API is alive" });
   });
 
-  // Catch-all for API routes
-  apiRouter.all("*", (req, res) => {
-    res.status(404).json({ error: `API route ${req.method} ${req.url} not found` });
-  });
-
+  // Mount the API router
   app.use("/api", apiRouter);
+
+  app.get("/api/*", (req, res) => {
+    console.log(`404 API Route Not Found: ${req.method} ${req.path}`);
+    res.status(404).json({ 
+      error: `API route ${req.method} ${req.path} not found`,
+      suggestion: "Check if the route is correctly defined in server.ts or gmail-routes.ts"
+    });
+  });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
@@ -237,9 +247,10 @@ async function startServer() {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
-      // If it's an API route that wasn't handled, return 404 JSON instead of HTML
-      if (req.url.startsWith("/api/")) {
-        return res.status(404).json({ error: `API route ${req.method} ${req.url} not found` });
+      // If it's an API route that wasn't handled by apiRouter, return 404 JSON instead of HTML
+      if (req.path.startsWith("/api/")) {
+        console.log(`Unmatched API request hitting catch-all: ${req.method} ${req.path}`);
+        return res.status(404).json({ error: `API route ${req.method} ${req.path} not found` });
       }
       res.sendFile(path.join(distPath, "index.html"));
     });

@@ -162,7 +162,20 @@ async function startServer() {
       const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
       const firebaseApp = initializeApp(firebaseConfig, 'webhook-app');
-      const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
+      
+      // Helper to get Firestore with fallback
+      const getFirestoreWithFallback = (app: any, config: any) => {
+        try {
+          if (config.firestoreDatabaseId) {
+            return getFirestore(app, config.firestoreDatabaseId);
+          }
+        } catch (e) {
+          console.warn('Failed to initialize Firestore with custom ID in webhook, falling back to (default)', e);
+        }
+        return getFirestore(app);
+      };
+
+      const db = getFirestoreWithFallback(firebaseApp, firebaseConfig);
       const auth = getAuth(firebaseApp);
 
       const adminEmail = process.env.FIREBASE_ADMIN_EMAIL || 'adminrodney@rnepremiermobilenotary.com';

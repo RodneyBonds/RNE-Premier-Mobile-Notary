@@ -13,7 +13,20 @@ const getFirebase = () => {
   const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
   const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
   const app = initializeApp(firebaseConfig, 'gmail-app');
-  const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+  
+  // Helper to get Firestore with fallback
+  const getFirestoreWithFallback = (app: any, config: any) => {
+    try {
+      if (config.firestoreDatabaseId) {
+        return getFirestore(app, config.firestoreDatabaseId);
+      }
+    } catch (e) {
+      console.warn('Failed to initialize Firestore with custom ID in gmail-routes, falling back to (default)', e);
+    }
+    return getFirestore(app);
+  };
+
+  const db = getFirestoreWithFallback(app, firebaseConfig);
   const auth = getAuth(app);
   return { db, auth };
 };

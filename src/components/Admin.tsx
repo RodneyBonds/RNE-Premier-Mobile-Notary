@@ -18,6 +18,12 @@ import {
 } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { 
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { 
   collection, 
   query, 
   orderBy, 
@@ -47,10 +53,9 @@ interface Message {
 }
 
 export default function Admin() {
-  const [isAdmin, setIsAdmin] = useState(() => {
-    return sessionStorage.getItem('isAdmin') === 'true';
-  });
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   
@@ -65,7 +70,22 @@ export default function Admin() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   useEffect(() => {
-    if (isAdmin) {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      // If logged in with our specific admin email, grant access
+      if (currentUser && currentUser.email === 'adminrodney@rnepremiermobilenotary.com') {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin && user) {
       const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const msgs = snapshot.docs.map(doc => ({
@@ -78,28 +98,27 @@ export default function Admin() {
       });
       return () => unsubscribe();
     }
-  }, [isAdmin]);
+  }, [isAdmin, user]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
     setIsLoggingIn(true);
     
-    // Simulate a brief network delay for UX
-    setTimeout(() => {
-      if (username === 'adminrodney' && password === 'passrodney') {
-        setIsAdmin(true);
-        sessionStorage.setItem('isAdmin', 'true');
-      } else {
-        setLoginError('Invalid username or password.');
-      }
+    try {
+      // Map the hardcoded username to the Firebase Auth email
+      const emailToUse = username === 'adminrodney' ? 'adminrodney@rnepremiermobilenotary.com' : username;
+      await signInWithEmailAndPassword(auth, emailToUse, password);
+    } catch (error: any) {
+      console.error('Login error:', error);
+      setLoginError('Invalid username or password. Make sure you created the user in Firebase.');
+    } finally {
       setIsLoggingIn(false);
-    }, 600);
+    }
   };
 
   const handleLogout = () => {
-    setIsAdmin(false);
-    sessionStorage.removeItem('isAdmin');
+    signOut(auth);
   };
 
   const handleSendReply = async (e: React.FormEvent) => {

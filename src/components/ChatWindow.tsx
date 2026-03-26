@@ -146,6 +146,7 @@ export default function ChatWindow({ isOpen: initialIsOpen, onClose, visitorInfo
       name: formData.get('name') as string,
       email: formData.get('email') as string,
       phone: formData.get('phone') as string,
+      message: formData.get('message') as string,
     };
     if (info.name && info.email && info.phone) {
       setVisitorInfo(info);
@@ -203,6 +204,14 @@ export default function ChatWindow({ isOpen: initialIsOpen, onClose, visitorInfo
     const text = inputText.trim();
     setInputText('');
 
+    // Optimistic update
+    const optimisticMessage: ChatMessage = {
+      text,
+      sender: 'visitor',
+      createdAt: Timestamp.now()
+    };
+    setMessages(prev => [...prev, optimisticMessage]);
+
     try {
       socket.emit('send-message', {
         sessionId: chatId,
@@ -213,6 +222,7 @@ export default function ChatWindow({ isOpen: initialIsOpen, onClose, visitorInfo
       });
     } catch (error) {
       console.error('Error sending message:', error);
+      // Rollback optimistic update if needed, but usually chat-update will fix it
     }
   };
 
@@ -349,6 +359,10 @@ export default function ChatWindow({ isOpen: initialIsOpen, onClose, visitorInfo
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Phone</label>
                           <input name="phone" required className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-accent-gold" placeholder="(480) 555-0123" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Initial Message</label>
+                          <textarea name="message" rows={3} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-accent-gold resize-none" placeholder="How can we help you?" />
                         </div>
                         <button type="submit" className="w-full bg-accent-gold text-[#050B14] font-bold py-4 rounded-xl mt-4 hover:bg-white transition-colors shadow-lg shadow-accent-gold/20">
                           Start Chatting

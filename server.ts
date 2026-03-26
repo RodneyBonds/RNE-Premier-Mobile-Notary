@@ -9,7 +9,7 @@ import fs from "fs";
 import { Resend } from "resend";
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, doc, updateDoc, arrayUnion, Timestamp, onSnapshot } from 'firebase/firestore';
+import { getFirestore, doc, updateDoc, arrayUnion, Timestamp, onSnapshot, getDoc } from 'firebase/firestore';
 
 dotenv.config();
 
@@ -196,8 +196,6 @@ async function startServer() {
     }
 
     try {
-      const { Resend } = await import("resend");
-      const resend = new Resend(process.env.RESEND_API_KEY);
       const fromEmail = process.env.RESEND_FROM_EMAIL || "RNE Premier Live Chat <onboarding@resend.dev>";
 
       const { data, error } = await resend.emails.send({
@@ -238,8 +236,6 @@ async function startServer() {
     }
 
     try {
-      const { Resend } = await import("resend");
-      const resend = new Resend(process.env.RESEND_API_KEY);
       const fromEmail = process.env.RESEND_FROM_EMAIL || "RNE Premier Live Chat <onboarding@resend.dev>";
 
       const { data, error } = await resend.emails.send({
@@ -530,6 +526,8 @@ async function startServer() {
   });
 
   // WebSocket logic
+  const sessionListeners = new Map<string, { unsubscribe: () => void, count: number }>();
+
   io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);
 
@@ -541,25 +539,50 @@ async function startServer() {
       socket.join(sessionId);
       console.log(`User ${socket.id} joined chat session: ${sessionId}`);
       
-      // Start watching Firestore for this session
-      const unsubscribe = onSnapshot(doc(db, "messages", sessionId), (snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.data();
-          if (data.replies) {
-            console.log(`Emitting chat-update for session ${sessionId} with ${data.replies.length} messages`);
-            // Send the latest replies to the visitor
-            socket.emit("chat-update", data.replies);
+      // Manage shared Firestore listener for this session
+      if (!sessionListeners.has(sessionId)) {
+        console.log(`Creating new Firestore listener for session: ${sessionId}`);
+        const unsubscribe = onSnapshot(doc(db, "messages", sessionId), (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            if (data.replies) {
+              console.log(`Broadcasting chat-update for session ${sessionId} with ${data.replies.length} messages`);
+              io.to(sessionId).emit("chat-update", data.replies);
+            }
+          } else {
+            console.warn(`onSnapshot: Document ${sessionId} does not exist`);
           }
-        } else {
-          console.warn(`onSnapshot: Document ${sessionId} does not exist`);
-        }
-      }, (err) => {
-        console.error(`onSnapshot error for session ${sessionId}:`, err);
-      });
+        }, (err) => {
+          console.error(`onSnapshot error for session ${sessionId}:`, err);
+        });
+        sessionListeners.set(sessionId, { unsubscribe, count: 1 });
+      } else {
+        const listener = sessionListeners.get(sessionId)!;
+        listener.count++;
+        console.log(`Reusing listener for session ${sessionId}, count: ${listener.count}`);
+        
+        // Send initial data to the new socket immediately
+        getDoc(doc(db, "messages", sessionId)).then(snap => {
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data.replies) {
+              socket.emit("chat-update", data.replies);
+            }
+          }
+        }).catch(err => console.error("Error getting initial chat data:", err));
+      }
 
       socket.on("disconnect", () => {
-        unsubscribe();
-        console.log("User disconnected:", socket.id);
+        const listener = sessionListeners.get(sessionId);
+        if (listener) {
+          listener.count--;
+          console.log(`User ${socket.id} disconnected from session ${sessionId}, remaining: ${listener.count}`);
+          if (listener.count <= 0) {
+            console.log(`Closing Firestore listener for session: ${sessionId}`);
+            listener.unsubscribe();
+            sessionListeners.delete(sessionId);
+          }
+        }
       });
     });
 
@@ -583,24 +606,30 @@ async function startServer() {
 
         // Notify admin via email for each visitor message
         if (sender === 'visitor') {
-          await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
-            to: "rodneyrnepremiermobilenotary@gmail.com",
-            subject: `New Live Chat Message from ${name}`,
-            html: `
-              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                <h2 style="color: #333;">New Message in Live Chat</h2>
-                <p><strong>Visitor:</strong> ${name} (${email})</p>
-                <p><strong>Message:</strong></p>
-                <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; border-left: 4px solid #007bff;">
-                  ${text}
+          try {
+            const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+            await resend.emails.send({
+              from: fromEmail,
+              to: "rodneyrnepremiermobilenotary@gmail.com",
+              subject: `New Live Chat Message from ${name}`,
+              html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                  <h2 style="color: #333;">New Message in Live Chat</h2>
+                  <p><strong>Visitor:</strong> ${name} (${email})</p>
+                  <p><strong>Message:</strong></p>
+                  <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; border-left: 4px solid #007bff;">
+                    ${text}
+                  </div>
+                  <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+                  <p style="font-size: 12px; color: #666;">Session ID: ${sessionId}</p>
+                  <p style="font-size: 12px; color: #666;">Time: ${new Date().toLocaleString()}</p>
                 </div>
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-                <p style="font-size: 12px; color: #666;">Session ID: ${sessionId}</p>
-                <p style="font-size: 12px; color: #666;">Time: ${new Date().toLocaleString()}</p>
-              </div>
-            `
-          });
+              `
+            });
+            console.log(`Admin notification email sent for session ${sessionId}`);
+          } catch (emailErr) {
+            console.error("Error sending admin notification email:", emailErr);
+          }
         }
       } catch (error) {
         console.error("Error handling chat message:", error);

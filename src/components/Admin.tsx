@@ -92,6 +92,7 @@ export default function Admin() {
     if (isAdmin && user) {
       const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
+        console.log(`Received ${snapshot.docs.length} messages from Firestore`);
         const msgs = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -478,6 +479,23 @@ export default function Admin() {
                   
                   <div className="flex gap-2">
                     <button
+                      onClick={async () => {
+                        if (!selectedMessage) return;
+                        try {
+                          const res = await fetch(`/api/test-webhook/${selectedMessage.id}`);
+                          const data = await res.json();
+                          if (data.success) alert("Test reply simulated! It should appear in the list shortly.");
+                          else alert("Error: " + data.error);
+                        } catch (e) {
+                          alert("Failed to simulate reply");
+                        }
+                      }}
+                      className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border border-white/10 transition-all text-sm font-medium"
+                      title="Test if replies are working"
+                    >
+                      Simulate Reply
+                    </button>
+                    <button
                       onClick={() => deleteMessage(selectedMessage.id)}
                       className="p-3 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all border border-red-500/20"
                       title="Delete Message"
@@ -621,6 +639,17 @@ export default function Admin() {
             )}
           </AnimatePresence>
         </div>
+        </div>
+        
+        {/* Debug Info (Only for Admin) */}
+        <div className="mt-12 p-6 rounded-2xl bg-white/5 border border-white/10 max-w-4xl mx-auto">
+          <h3 className="text-sm font-bold text-white/50 uppercase tracking-widest mb-4">System Debug Info</h3>
+          <div className="space-y-2 text-xs font-mono text-white/30">
+            <p>Webhook URL: <span className="text-white/60 select-all">https://ais-pre-ektsqthcod4xswgirhkehw-539831521677.asia-southeast1.run.app/api/webhooks/inbound</span></p>
+            <p>Resend Inbound: <span className="text-white/60">{import.meta.env.VITE_RESEND_INBOUND_EMAIL || 'Not Set (Using Default)'}</span></p>
+            <p>Admin Email: <span className="text-white/60">{import.meta.env.VITE_FIREBASE_ADMIN_EMAIL || 'Not Set'}</span></p>
+            <p className="mt-4 text-white/20 italic">Note: Ensure the Webhook URL above is added to your Resend.com dashboard under Webhooks.</p>
+          </div>
         </div>
       </main>
 

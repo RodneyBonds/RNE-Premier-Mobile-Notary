@@ -92,7 +92,7 @@ async function startServer() {
       const { Resend } = await import("resend");
       const resend = new Resend(process.env.RESEND_API_KEY);
       const fromEmail = process.env.RESEND_FROM_EMAIL || "RNE Premier Mobile Notary <onboarding@resend.dev>";
-      const replyToEmail = process.env.RESEND_INBOUND_EMAIL || "rodneyrnepremiermobilenotary@gmail.com";
+      const replyToEmail = process.env.RESEND_INBOUND_EMAIL || "Rodbonds1169@gmail.com";
 
       const { data, error } = await resend.emails.send({
         from: fromEmail,
@@ -197,23 +197,94 @@ async function startServer() {
       const adminEmail = process.env.FIREBASE_ADMIN_EMAIL || 'adminrodney@rnepremiermobilenotary.com';
       const adminPassword = process.env.FIREBASE_ADMIN_PASSWORD || 'passrodney';
       
+      console.log(`Signing in as admin: ${adminEmail}`);
       await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
 
       const reply = {
         text: text || 'No text content',
         createdAt: Timestamp.now(),
-        sender: 'client'
+        sender: 'client',
+        fromEmail: from || 'unknown'
       };
 
-      await updateDoc(doc(db, 'messages', messageId), {
+      console.log(`Updating document ${messageId} with reply from ${from}`);
+      
+      const docRef = doc(db, 'messages', messageId);
+      const docSnap = await getDoc(docRef);
+      
+      if (!docSnap.exists()) {
+        console.error(`Message document with ID ${messageId} not found in Firestore`);
+        return res.status(404).json({ error: `Message ${messageId} not found` });
+      }
+
+      await updateDoc(docRef, {
         replies: arrayUnion(reply),
         status: 'unread'
       });
 
+      console.log('Document updated successfully');
       return res.status(200).json({ success: true });
     } catch (error) {
       console.error('Webhook error:', error);
       return res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
+    }
+  });
+
+  // Test route to simulate a webhook for a specific message
+  apiRouter.get("/test-webhook/:messageId", async (req, res) => {
+    const { messageId } = req.params;
+    console.log(`Simulating webhook for message: ${messageId}`);
+    
+    try {
+      // Dynamic import to avoid top-level issues
+      const { initializeApp, getApps } = await import('firebase/app');
+      const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
+      const { getFirestore, doc, updateDoc, arrayUnion, Timestamp, getDoc } = await import('firebase/firestore');
+      const fs = await import('fs');
+      const path = await import('path');
+
+      const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+      const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+      const apps = getApps();
+      const firebaseApp = apps.find(a => a.name === 'test-app') || initializeApp(firebaseConfig, 'test-app');
+      
+      const getFirestoreWithFallback = (app: any, config: any) => {
+        if (config.firestoreDatabaseId) return getFirestore(app, config.firestoreDatabaseId);
+        return getFirestore(app);
+      };
+
+      const db = getFirestoreWithFallback(firebaseApp, firebaseConfig);
+      const auth = getAuth(firebaseApp);
+
+      const adminEmail = process.env.FIREBASE_ADMIN_EMAIL || 'adminrodney@rnepremiermobilenotary.com';
+      const adminPassword = process.env.FIREBASE_ADMIN_PASSWORD || 'passrodney';
+      
+      await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+
+      const reply = {
+        text: "This is a TEST reply simulated from the server.",
+        createdAt: Timestamp.now(),
+        sender: 'client',
+        fromEmail: 'test@example.com'
+      };
+
+      const docRef = doc(db, 'messages', messageId);
+      const docSnap = await getDoc(docRef);
+      
+      if (!docSnap.exists()) {
+        return res.status(404).json({ error: `Message ${messageId} not found. Make sure the ID is correct.` });
+      }
+
+      await updateDoc(docRef, {
+        replies: arrayUnion(reply),
+        status: 'unread'
+      });
+
+      res.json({ success: true, message: "Test reply added successfully. Check your admin panel!" });
+    } catch (error) {
+      console.error('Test webhook error:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
     }
   });
 

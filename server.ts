@@ -167,9 +167,9 @@ async function startServer() {
       console.log(`Processing reply for message ID: ${messageId}`);
 
       // Dynamic import to avoid top-level issues
-      const { initializeApp, getApps, getApp } = await import('firebase/app');
+      const { initializeApp, getApps } = await import('firebase/app');
       const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
-      const { getFirestore, doc, updateDoc, arrayUnion, Timestamp } = await import('firebase/firestore');
+      const { getFirestore, doc, updateDoc, arrayUnion, Timestamp, getDoc } = await import('firebase/firestore');
       const fs = await import('fs');
       const path = await import('path');
 

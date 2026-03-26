@@ -483,11 +483,18 @@ export default function Admin() {
                         if (!selectedMessage) return;
                         try {
                           const res = await fetch(`/api/test-webhook/${selectedMessage.id}`);
-                          const data = await res.json();
+                          const text = await res.text();
+                          let data;
+                          try {
+                            data = JSON.parse(text);
+                          } catch (e) {
+                            throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
+                          }
+                          
                           if (data.success) alert("Test reply simulated! It should appear in the list shortly.");
-                          else alert("Error: " + data.error);
+                          else alert("Error: " + (data.error || "Unknown error"));
                         } catch (e) {
-                          alert("Failed to simulate reply");
+                          alert("Failed: " + (e instanceof Error ? e.message : String(e)));
                         }
                       }}
                       className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border border-white/10 transition-all text-sm font-medium"

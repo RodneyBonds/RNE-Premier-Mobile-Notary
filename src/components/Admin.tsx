@@ -77,12 +77,17 @@ export default function Admin() {
   const checkConfig = async () => {
     try {
       const res = await fetch(`/api/health?t=${Date.now()}`);
+      if (!res.ok) {
+        const text = await res.text();
+        console.error(`Server health check failed with status ${res.status}: ${text}`);
+        return;
+      }
       const data = await res.json();
       if (data.env) {
         setServerConfig(data.env);
       }
     } catch (e) {
-      console.error('Failed to check server config');
+      console.error('Failed to check server config. Server might be offline or misconfigured.', e);
     }
   };
 

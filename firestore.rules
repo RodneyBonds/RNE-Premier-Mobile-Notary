@@ -37,7 +37,8 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() &&
+      return isAuthenticated() && 
+        request.auth.token.keys().contains('email') &&
         (request.auth.token.email.lower() == "rodbonds1169@gmail.com" ||
          request.auth.token.email.lower() == "adminrodney@rnepremiermobilenotary.com");
     }

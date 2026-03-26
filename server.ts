@@ -221,8 +221,9 @@ async function startServer() {
       const adminPassword = process.env.FIREBASE_ADMIN_PASSWORD || 'passrodney';
       
       console.log(`Signing in as admin: ${adminEmail}`);
-      await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-
+      const userCredential = await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+      console.log(`Signed in successfully as: ${userCredential.user.email} (UID: ${userCredential.user.uid})`);
+      
       const reply = {
         text: text || 'No text content',
         createdAt: Timestamp.now(),
@@ -240,10 +241,19 @@ async function startServer() {
         return res.status(404).json({ error: `Message ${messageId} not found` });
       }
 
-      await updateDoc(docRef, {
-        replies: arrayUnion(reply),
-        status: 'unread'
-      });
+      try {
+        await updateDoc(docRef, {
+          replies: arrayUnion(reply),
+          status: 'unread'
+        });
+      } catch (fsError: any) {
+        console.error('Firestore Update Error Details:', {
+          code: fsError.code,
+          message: fsError.message,
+          stack: fsError.stack
+        });
+        throw fsError;
+      }
 
       console.log('Document updated successfully');
       return res.status(200).json({ success: true });
@@ -283,7 +293,9 @@ async function startServer() {
       const adminEmail = process.env.FIREBASE_ADMIN_EMAIL || 'adminrodney@rnepremiermobilenotary.com';
       const adminPassword = process.env.FIREBASE_ADMIN_PASSWORD || 'passrodney';
       
-      await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+      console.log(`Signing in as admin for test: ${adminEmail}`);
+      const userCredential = await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+      console.log(`Signed in successfully for test: ${userCredential.user.email} (UID: ${userCredential.user.uid})`);
 
       const reply = {
         text: "This is a TEST reply simulated from the server.",
@@ -299,10 +311,19 @@ async function startServer() {
         return res.status(404).json({ error: `Message ${messageId} not found. Make sure the ID is correct.` });
       }
 
-      await updateDoc(docRef, {
-        replies: arrayUnion(reply),
-        status: 'unread'
-      });
+      try {
+        await updateDoc(docRef, {
+          replies: arrayUnion(reply),
+          status: 'unread'
+        });
+      } catch (fsError: any) {
+        console.error('Firestore Test Update Error Details:', {
+          code: fsError.code,
+          message: fsError.message,
+          stack: fsError.stack
+        });
+        throw fsError;
+      }
 
       res.json({ success: true, message: "Test reply added successfully. Check your admin panel!" });
     } catch (error) {
@@ -322,11 +343,6 @@ async function startServer() {
   // Also add a GET handler to debug 405 errors
   apiRouter.get("/send-message", (req, res) => {
     res.status(200).json({ message: "Contact API is reachable via GET. Use POST for submissions." });
-  });
-
-  // Add a health check route to verify API is working
-  apiRouter.get("/health", (req, res) => {
-    res.json({ status: "ok", message: "API is alive" });
   });
 
   // Mount the API router early
@@ -361,6 +377,9 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+
+  return app;
 }
 
-startServer();
+export const appPromise = startServer();
+export default appPromise;

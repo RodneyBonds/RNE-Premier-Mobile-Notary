@@ -534,6 +534,10 @@ async function startServer() {
     console.log("A user connected:", socket.id);
 
     socket.on("join-chat", (sessionId) => {
+      if (!sessionId) {
+        console.error("join-chat called without sessionId");
+        return;
+      }
       socket.join(sessionId);
       console.log(`User ${socket.id} joined chat session: ${sessionId}`);
       
@@ -542,10 +546,15 @@ async function startServer() {
         if (snapshot.exists()) {
           const data = snapshot.data();
           if (data.replies) {
+            console.log(`Emitting chat-update for session ${sessionId} with ${data.replies.length} messages`);
             // Send the latest replies to the visitor
             socket.emit("chat-update", data.replies);
           }
+        } else {
+          console.warn(`onSnapshot: Document ${sessionId} does not exist`);
         }
+      }, (err) => {
+        console.error(`onSnapshot error for session ${sessionId}:`, err);
       });
 
       socket.on("disconnect", () => {
@@ -555,7 +564,10 @@ async function startServer() {
     });
 
     socket.on("send-message", async ({ sessionId, text, sender, name, email }) => {
+      console.log(`Received send-message from ${sender} for session ${sessionId}: ${text.substring(0, 20)}...`);
       try {
+        if (!sessionId) throw new Error("No sessionId provided");
+
         const newReply = {
           text,
           createdAt: Timestamp.now(),
@@ -566,6 +578,8 @@ async function startServer() {
           replies: arrayUnion(newReply),
           status: 'unread' // Mark as unread for admin
         });
+        
+        console.log(`Successfully updated Firestore for session ${sessionId}`);
 
         // Notify admin via email for each visitor message
         if (sender === 'visitor') {

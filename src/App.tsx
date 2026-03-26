@@ -16,6 +16,7 @@ import Credentials from './components/Credentials';
 import Contact from './components/Contact';
 import Footer from './components/Footer';
 import Admin from './components/Admin';
+import ChatWindow from './components/ChatWindow';
 
 function HomePage() {
   const mainRef = useRef<HTMLElement>(null);
@@ -123,6 +124,11 @@ function HomePage() {
         <Contact />
       </main>
       <Footer />
+      <ChatWindow 
+        isOpen={false} 
+        onClose={() => {}} 
+        visitorInfo={{ name: '', email: '', phone: '' }}
+      />
     </div>
   );
 }

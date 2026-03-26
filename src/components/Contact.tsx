@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Send, CheckCircle2, X, MessageSquare } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, onSnapshot, doc } from 'firebase/firestore';
 import ChatWindow from './ChatWindow';
 
 enum OperationType {
@@ -40,16 +40,30 @@ export default function Contact() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isAdminOnline, setIsAdminOnline] = useState(false);
+
+  React.useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'settings', 'chat'), (snapshot) => {
+      if (snapshot.exists()) {
+        setIsAdminOnline(snapshot.data().isOnline);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const isFormValidForChat = formData.name && formData.email && formData.phone && formData.message;
 
   const handleStartChat = (e: React.MouseEvent) => {
     e.preventDefault();
     // Validate required fields for chat
-    if (!formData.name || !formData.email || !formData.phone) {
-      setErrorMessage('Please fill in your name, email, and phone to start a live chat.');
+    if (!isFormValidForChat) {
+      setErrorMessage('Please fill in all fields to start a live chat.');
       setStatus('error');
       return;
     }
-    setIsChatOpen(true);
+    window.dispatchEvent(new CustomEvent('open-chat', { 
+      detail: { visitorInfo: formData } 
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -267,11 +281,17 @@ export default function Contact() {
                   <button
                     type="button"
                     onClick={handleStartChat}
-                    disabled={status === 'submitting' || status === 'success'}
-                    className="flex-1 font-semibold px-8 py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group/chat bg-white/5 border border-white/10 text-white hover:bg-white/10 hover:border-accent-gold/50 hover:-translate-y-1"
+                    disabled={status === 'submitting' || status === 'success' || !isAdminOnline || !isFormValidForChat}
+                    className={`flex-1 font-semibold px-8 py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group/chat border ${
+                      !isAdminOnline 
+                        ? 'bg-white/5 border-white/10 text-white/20 cursor-not-allowed'
+                        : !isFormValidForChat
+                          ? 'bg-white/5 border-white/10 text-white/40 cursor-not-allowed'
+                          : 'bg-white/5 border-white/10 text-white hover:bg-white/10 hover:border-accent-gold/50 hover:-translate-y-1'
+                    }`}
                   >
-                    <MessageSquare className="w-5 h-5 group-hover/chat:scale-110 transition-transform text-accent-gold" />
-                    LIVE CHAT
+                    <MessageSquare className={`w-5 h-5 group-hover/chat:scale-110 transition-transform ${isAdminOnline && isFormValidForChat ? 'text-accent-gold' : 'text-white/20'}`} />
+                    {isAdminOnline ? 'LIVE CHAT' : 'CHAT OFFLINE'}
                   </button>
                 </div>
                 {status === 'error' && (
@@ -327,12 +347,7 @@ export default function Contact() {
         </div>
       </div>
 
-      {/* Live Chat Window */}
-      <ChatWindow 
-        isOpen={isChatOpen} 
-        onClose={() => setIsChatOpen(false)} 
-        visitorInfo={formData}
-      />
+      {/* Live Chat Window is now handled globally in App.tsx */}
     </section>
   );
 }

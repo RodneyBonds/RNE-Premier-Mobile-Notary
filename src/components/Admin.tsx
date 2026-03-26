@@ -45,7 +45,7 @@ import { format } from 'date-fns';
 interface Reply {
   text: string;
   createdAt: any;
-  sender: 'admin' | 'client';
+  sender: 'admin' | 'visitor' | 'client'; // Keep client for email replies
 }
 
 interface Message {
@@ -68,6 +68,8 @@ export default function Admin() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [filter, setFilter] = useState<'active' | 'done' | 'cancelled' | 'chats' | 'all'>('active');
+  const [isChatOnline, setIsChatOnline] = useState(false);
+  const [isUpdatingChatStatus, setIsUpdatingChatStatus] = useState(false);
   
   // Login states
   const [username, setUsername] = useState('');
@@ -118,6 +120,43 @@ export default function Admin() {
       return () => unsubscribe();
     }
   }, [isAdmin, user, selectedMessage?.id]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      const unsubscribe = onSnapshot(doc(db, 'settings', 'chat'), (snapshot) => {
+        if (snapshot.exists()) {
+          setIsChatOnline(snapshot.data().isOnline);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [isAdmin]);
+
+  const toggleChatStatus = async () => {
+    setIsUpdatingChatStatus(true);
+    try {
+      await updateDoc(doc(db, 'settings', 'chat'), {
+        isOnline: !isChatOnline,
+        updatedAt: Timestamp.now()
+      });
+    } catch (error) {
+      console.error('Error updating chat status:', error);
+      // If document doesn't exist, we might need to create it, but updateDoc fails if it doesn't exist.
+      // However, in a real app we'd initialize this.
+      // For now, let's try to set it if update fails.
+      try {
+        const { setDoc } = await import('firebase/firestore');
+        await setDoc(doc(db, 'settings', 'chat'), {
+          isOnline: !isChatOnline,
+          updatedAt: Timestamp.now()
+        });
+      } catch (e) {
+        console.error('Failed to set chat status:', e);
+      }
+    } finally {
+      setIsUpdatingChatStatus(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,6 +267,21 @@ export default function Admin() {
       } catch (error) {
         console.error('Delete message error:', error);
       }
+    }
+  };
+
+  const formatTimestamp = (ts: any, formatStr: string) => {
+    if (!ts) return '...';
+    try {
+      if (typeof ts.toDate === 'function') {
+        return format(ts.toDate(), formatStr);
+      }
+      if (ts._seconds !== undefined) {
+        return format(new Date(ts._seconds * 1000), formatStr);
+      }
+      return format(new Date(ts), formatStr);
+    } catch (e) {
+      return '...';
     }
   };
 
@@ -342,6 +396,24 @@ export default function Admin() {
             </div>
           </div>
           <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3 px-4 py-2 bg-white/5 rounded-xl border border-white/10">
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Live Chat</span>
+                <span className={`text-xs font-bold ${isChatOnline ? 'text-green-400' : 'text-red-400'}`}>
+                  {isChatOnline ? 'ONLINE' : 'OFFLINE'}
+                </span>
+              </div>
+              <button
+                onClick={toggleChatStatus}
+                disabled={isUpdatingChatStatus}
+                className={`w-12 h-6 rounded-full p-1 transition-colors relative ${isChatOnline ? 'bg-green-500' : 'bg-white/10'}`}
+              >
+                <motion.div 
+                  animate={{ x: isChatOnline ? 24 : 0 }}
+                  className="w-4 h-4 bg-white rounded-full shadow-sm"
+                />
+              </button>
+            </div>
             <div className="hidden md:flex flex-col items-end">
               <span className="text-sm font-medium">Admin User</span>
               <span className="text-xs text-white/40">adminrodney</span>
@@ -436,7 +508,7 @@ export default function Admin() {
                         {msg.name}
                       </h3>
                       <span className="text-[10px] text-white/30 whitespace-nowrap">
-                        {msg.createdAt ? format(msg.createdAt.toDate(), 'MMM d, h:mm a') : '...'}
+                        {formatTimestamp(msg.createdAt, 'MMM d, h:mm a')}
                       </span>
                     </div>
                     
@@ -519,7 +591,7 @@ export default function Admin() {
                         </a>
                         <div className="flex items-center gap-2">
                           <Clock className="w-4 h-4" />
-                          {selectedMessage.createdAt ? format(selectedMessage.createdAt.toDate(), 'MMMM d, yyyy p') : '...'}
+                          {formatTimestamp(selectedMessage.createdAt, 'MMMM d, yyyy p')}
                         </div>
                       </div>
                     </div>
@@ -540,7 +612,7 @@ export default function Admin() {
                   <div>
                     <h4 className="text-xs uppercase tracking-widest text-white/30 mb-4 font-bold">Message Content</h4>
                     <p className="text-lg leading-relaxed text-white/80 whitespace-pre-wrap">
-                      {selectedMessage.message}
+                      {selectedMessage.message || (selectedMessage.type === 'chat' ? 'No initial message provided.' : '')}
                     </p>
                   </div>
 
@@ -562,8 +634,12 @@ export default function Admin() {
                               <p className="text-sm whitespace-pre-wrap">{reply.text}</p>
                               <div className="mt-2 text-[10px] opacity-40 flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
-                                {reply.createdAt ? format(reply.createdAt.toDate(), 'MMM d, h:mm a') : '...'}
-                                {reply.sender === 'admin' && <span className="ml-1 text-accent-gold">• Sent by Admin</span>}
+                                {formatTimestamp(reply.createdAt, 'MMM d, h:mm a')}
+                                {reply.sender === 'admin' ? (
+                                  <span className="ml-1 text-accent-gold">• Sent by Admin</span>
+                                ) : (
+                                  <span className="ml-1 text-blue-400">• Sent by {reply.sender === 'visitor' ? 'Visitor' : 'Client'}</span>
+                                )}
                               </div>
                             </div>
                           </div>

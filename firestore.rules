@@ -59,15 +59,17 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidMessage(data) {
-      return hasRequiredFields(['name', 'email', 'phone', 'message', 'createdAt', 'status']) &&
-             hasOnlyAllowedFields(['name', 'email', 'phone', 'message', 'createdAt', 'status', 'replies']) &&
+      return hasRequiredFields(['name', 'email', 'phone', 'createdAt', 'status']) &&
+             hasOnlyAllowedFields(['name', 'email', 'phone', 'message', 'createdAt', 'status', 'replies', 'type', 'chatStatus']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.email is string && isValidEmail(data.email) &&
              data.phone is string && data.phone.size() > 0 && data.phone.size() < 20 &&
-             data.message is string && data.message.size() > 0 && data.message.size() < 5000 &&
+             (!('message' in data) || (data.message is string && data.message.size() < 5000)) &&
              data.createdAt is timestamp &&
-             data.status in ['unread', 'read', 'replied', 'done', 'cancelled'] &&
-             (!('replies' in data) || data.replies is list);
+             data.status in ['unread', 'read', 'replied', 'done', 'cancelled', 'ongoing'] &&
+             (!('replies' in data) || data.replies is list) &&
+             (!('type' in data) || data.type in ['email', 'chat']) &&
+             (!('chatStatus' in data) || data.chatStatus in ['active', 'closed']);
     }
 
     function isValidUser(data) {
@@ -110,6 +112,13 @@ service cloud.firestore {
       match /integrations/{integrationId} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
+    }
+
+    match /settings/{settingId} {
+      // Anyone can read settings (like chat availability)
+      allow read: if true;
+      // Only admins can update settings
+      allow write: if isAdmin();
     }
   }
 }

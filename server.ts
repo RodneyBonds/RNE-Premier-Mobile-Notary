@@ -15,9 +15,15 @@ async function startServer() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
+  // Log all incoming requests for debugging
+  app.use((req, res, next) => {
+    console.log(`[${req.method}] ${req.url}`);
+    next();
+  });
+
   // API Route for sending emails via Resend
-  app.post("/api/contact", async (req, res) => {
-    console.log(`POST /api/contact request received`);
+  app.post("/api/send-message", async (req, res) => {
+    console.log(`POST /api/send-message request received`);
     console.log("Body:", JSON.stringify(req.body));
     const { name, email, phone, message } = req.body;
 
@@ -58,12 +64,12 @@ async function startServer() {
   });
 
   // Handle preflight requests
-  app.options("/api/contact", (req, res) => {
+  app.options("/api/send-message", (req, res) => {
     res.status(204).end();
   });
 
   // Also add a GET handler to debug 405 errors
-  app.get("/api/contact", (req, res) => {
+  app.get("/api/send-message", (req, res) => {
     res.status(200).json({ message: "Contact API is reachable via GET. Use POST for submissions." });
   });
 

@@ -59,7 +59,7 @@ export default function Contact() {
       }
 
       // 2. Send Email Notification via Resend
-      const response = await fetch('/api/contact', {
+      const response = await fetch('/api/send-message', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

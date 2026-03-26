@@ -15,15 +15,18 @@ dotenv.config();
 const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
 const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    projectId: firebaseConfig.projectId,
-  });
+const appOptions: any = {
+  projectId: firebaseConfig.projectId,
+};
+if (firebaseConfig.firestoreDatabaseId) {
+  appOptions.databaseId = firebaseConfig.firestoreDatabaseId;
 }
 
-const db = firebaseConfig.firestoreDatabaseId 
-  ? admin.firestore(firebaseConfig.firestoreDatabaseId)
-  : admin.firestore();
+if (!admin.apps.length) {
+  admin.initializeApp(appOptions);
+}
+
+const db = admin.firestore();
 
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);

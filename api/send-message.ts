@@ -27,9 +27,10 @@ export default async function handler(req: any, res: any) {
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY);
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "RNE Premier Contact Form <onboarding@resend.dev>";
 
     const { data, error } = await resend.emails.send({
-      from: 'RNE Premier Contact Form <onboarding@resend.dev>',
+      from: fromEmail,
       to: ['rodneyrnepremiermobilenotary@gmail.com'],
       replyTo: email,
       subject: `New Contact Form: ${name}`,

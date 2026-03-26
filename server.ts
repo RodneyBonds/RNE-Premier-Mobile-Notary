@@ -35,9 +35,10 @@ async function startServer() {
     try {
       const { Resend } = await import("resend");
       const resend = new Resend(process.env.RESEND_API_KEY);
+      const fromEmail = process.env.RESEND_FROM_EMAIL || "RNE Premier Contact Form <onboarding@resend.dev>";
 
       const { data, error } = await resend.emails.send({
-        from: "RNE Premier Contact Form <onboarding@resend.dev>",
+        from: fromEmail,
         to: ["rodneyrnepremiermobilenotary@gmail.com"],
         replyTo: email,
         subject: `New Contact Form: ${name}`,
@@ -78,9 +79,10 @@ async function startServer() {
     try {
       const { Resend } = await import("resend");
       const resend = new Resend(process.env.RESEND_API_KEY);
+      const fromEmail = process.env.RESEND_FROM_EMAIL || "RNE Premier Mobile Notary <onboarding@resend.dev>";
 
       const { data, error } = await resend.emails.send({
-        from: "RNE Premier Mobile Notary <onboarding@resend.dev>",
+        from: fromEmail,
         to: [email],
         replyTo: "rodneyrnepremiermobilenotary@gmail.com",
         subject: `Re: Your Contact Form Submission - RNE Premier`,

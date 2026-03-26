@@ -22,10 +22,17 @@ async function startServer() {
     next();
   });
 
-  app.use("/api", gmailRoutes);
+  const apiRouter = express.Router();
+
+  apiRouter.use((req, res, next) => {
+    console.log(`API Request: ${req.method} ${req.url}`);
+    next();
+  });
+
+  apiRouter.use("/", gmailRoutes);
 
   // API Route for sending emails via Resend
-  app.post("/api/send-message", async (req, res) => {
+  apiRouter.post("/send-message", async (req, res) => {
     console.log(`POST /api/send-message request received`);
     console.log("Body:", JSON.stringify(req.body));
     const { name, email, phone, message } = req.body;
@@ -69,7 +76,7 @@ async function startServer() {
   });
 
   // API Route for sending replies to clients
-  app.post("/api/send-reply", async (req, res) => {
+  apiRouter.post("/send-reply", async (req, res) => {
     console.log(`POST /api/send-reply request received`);
     console.log("Body:", JSON.stringify(req.body));
     const { messageId, name, email, replyText, originalMessage } = req.body;
@@ -125,7 +132,7 @@ async function startServer() {
   });
 
   // API Route for inbound webhooks from Resend
-  app.post("/api/webhooks/inbound", async (req, res) => {
+  apiRouter.post("/webhooks/inbound", async (req, res) => {
     console.log(`POST /api/webhooks/inbound request received`);
     try {
       const payload = req.body;
@@ -182,27 +189,29 @@ async function startServer() {
   });
 
   // Handle preflight requests
-  app.options("/api/send-message", (req, res) => {
+  apiRouter.options("/send-message", (req, res) => {
     res.status(204).end();
   });
-  app.options("/api/send-reply", (req, res) => {
+  apiRouter.options("/send-reply", (req, res) => {
     res.status(204).end();
   });
 
   // Also add a GET handler to debug 405 errors
-  app.get("/api/send-message", (req, res) => {
+  apiRouter.get("/send-message", (req, res) => {
     res.status(200).json({ message: "Contact API is reachable via GET. Use POST for submissions." });
   });
 
   // Add a health check route to verify API is working
-  app.get("/api/health", (req, res) => {
+  apiRouter.get("/health", (req, res) => {
     res.json({ status: "ok", message: "API is alive" });
   });
 
   // Catch-all for API routes
-  app.all("/api/*", (req, res) => {
+  apiRouter.all("*", (req, res) => {
     res.status(404).json({ error: `API route ${req.method} ${req.url} not found` });
   });
+
+  app.use("/api", apiRouter);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
@@ -215,6 +224,10 @@ async function startServer() {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
+      // If it's an API route that wasn't handled, return 404 JSON instead of HTML
+      if (req.url.startsWith("/api/")) {
+        return res.status(404).json({ error: `API route ${req.method} ${req.url} not found` });
+      }
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

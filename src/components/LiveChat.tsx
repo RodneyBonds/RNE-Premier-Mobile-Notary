@@ -84,36 +84,60 @@ export default function LiveChat() {
     <div className="fixed bottom-6 right-6 z-50">
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="bg-accent-gold p-4 rounded-full shadow-lg hover:scale-110 transition-transform"
+        className="bg-[#D4AF37] p-4 rounded-full shadow-lg hover:scale-110 transition-transform"
       >
         <MessageCircle className="w-8 h-8 text-[#050B14]" />
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-20 right-0 w-80 bg-[#0A111E] border border-accent-gold/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-96">
-          <div className="p-4 bg-accent-gold text-[#050B14] font-bold flex justify-between items-center">
-            <span>RNE Premier Chat</span>
-            <X onClick={() => setIsOpen(false)} className="cursor-pointer" />
+        <div className="absolute bottom-20 right-0 w-[350px] max-w-[90vw] bg-[#111111] border border-[#D4AF37]/20 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[500px]">
+          <div className="p-4 bg-[#111111] border-b border-[#D4AF37]/20 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span className="text-white font-bold">Live Chat</span>
+            </div>
+            <X onClick={() => setIsOpen(false)} className="cursor-pointer text-white hover:text-[#D4AF37]" />
           </div>
           
           {!chatStarted ? (
-            <form onSubmit={startChat} className="p-4 space-y-3">
-              <input type="text" placeholder="Name" required className="w-full p-2 rounded bg-white/10 text-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-              <input type="email" placeholder="Email" required className="w-full p-2 rounded bg-white/10 text-white" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-              <input type="tel" placeholder="Phone" required className="w-full p-2 rounded bg-white/10 text-white" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-              <textarea placeholder="Message" required className="w-full p-2 rounded bg-white/10 text-white" value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})} />
-              <button type="submit" className="w-full bg-accent-gold py-2 rounded font-bold">Start Chat</button>
+            <form onSubmit={startChat} className="p-6 space-y-4 flex-1 flex flex-col justify-center">
+              <h3 className="text-white text-xl font-bold text-center mb-2">Welcome!</h3>
+              <p className="text-white/60 text-center text-sm mb-4">Please enter your details to start chatting with us.</p>
+              <input type="text" placeholder="Your Name" required className="w-full p-3 rounded-xl bg-[#1A1A1A] text-white border border-white/10 focus:border-[#D4AF37] outline-none" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+              <input type="email" placeholder="Your Email" required className="w-full p-3 rounded-xl bg-[#1A1A1A] text-white border border-white/10 focus:border-[#D4AF37] outline-none" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+              <textarea placeholder="Message" required className="w-full p-3 rounded-xl bg-[#1A1A1A] text-white border border-white/10 focus:border-[#D4AF37] outline-none h-24" value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})} />
+              <button type="submit" className="w-full bg-[#D4AF37] text-[#111111] py-3 rounded-xl font-bold hover:bg-[#B8962D] transition-colors">Start Chat</button>
             </form>
           ) : (
-            <div className="flex-1 p-4 overflow-y-auto space-y-2">
-              {messages.map(msg => (
-                <div key={msg.id} className={msg.senderId === 'visitor' ? 'text-right' : 'text-left'}>
-                  <span className={`inline-block p-2 rounded text-sm ${msg.senderId === 'visitor' ? 'bg-accent-gold text-[#050B14]' : 'bg-white/10 text-white'}`}>{msg.text}</span>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-              <div className="flex gap-2 mt-2">
-                <input type="text" id="chatInput" className="flex-1 p-2 rounded bg-white/10 text-white" onKeyDown={e => { if(e.key === 'Enter') { sendMessage(e.target.value); e.target.value = ''; } }} />
+            <div className="flex flex-col h-full">
+              <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                {messages.map(msg => (
+                  <div key={msg.id} className={`flex ${msg.senderId === 'visitor' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.senderId === 'visitor' ? 'bg-[#D4AF37] text-[#111111] rounded-br-none' : 'bg-[#1A1A1A] text-white rounded-bl-none'}`}>
+                      {msg.text}
+                      <div className="text-[10px] opacity-50 mt-1">{msg.timestamp?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                    </div>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+              <div className="p-4 bg-[#111111] border-t border-[#D4AF37]/20 flex gap-2">
+                <input 
+                  type="text" 
+                  id="chatInput" 
+                  className="flex-1 p-3 rounded-xl bg-[#1A1A1A] text-white border border-white/10 focus:border-[#D4AF37] outline-none" 
+                  placeholder="Type your message..."
+                  onKeyDown={e => { if(e.key === 'Enter' && e.target.value.trim()) { sendMessage(e.target.value); e.target.value = ''; } }} 
+                />
+                <button 
+                  onClick={() => {
+                    const input = document.getElementById('chatInput') as HTMLInputElement;
+                    if(input.value.trim()) { sendMessage(input.value); input.value = ''; }
+                  }}
+                  className="bg-[#D4AF37] p-3 rounded-xl text-[#111111] hover:bg-[#B8962D] transition-colors"
+                >
+                  <Send className="w-5 h-5" />
+                </button>
               </div>
             </div>
           )}

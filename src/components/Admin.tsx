@@ -136,6 +136,32 @@ export default function Admin() {
         createdAt: Timestamp.now()
       };
       
+      // Send email via API
+      const response = await fetch('/api/send-reply', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: selectedMessage.name,
+          email: selectedMessage.email,
+          replyText: replyText.trim(),
+          originalMessage: selectedMessage.message
+        }),
+      });
+
+      if (!response.ok) {
+        let msg = 'Failed to send email';
+        try {
+          const errorData = await response.json();
+          msg = typeof errorData.error === 'string' ? errorData.error : (errorData.error?.message || msg);
+        } catch (e) {
+          msg = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(msg);
+      }
+
+      // Save to Firestore
       await updateDoc(doc(db, 'messages', selectedMessage.id), {
         replies: arrayUnion(reply),
         status: 'replied'
@@ -144,6 +170,7 @@ export default function Admin() {
       setReplyText('');
     } catch (error) {
       console.error('Send reply error:', error);
+      alert(error instanceof Error ? error.message : 'Failed to send reply');
     } finally {
       setIsSendingReply(false);
     }

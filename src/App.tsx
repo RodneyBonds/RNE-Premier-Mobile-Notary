@@ -14,6 +14,8 @@ import WhyChooseUs from './components/WhyChooseUs';
 import ServiceArea from './components/ServiceArea';
 import Contact from './components/Contact';
 import Footer from './components/Footer';
+import LiveChat from './components/LiveChat';
+import AdminPanel from './components/AdminPanel';
 
 function HomePage() {
   const mainRef = useRef<HTMLElement>(null);
@@ -120,6 +122,7 @@ function HomePage() {
         <Contact />
       </main>
       <Footer />
+      <LiveChat />
     </div>
   );
 }
@@ -129,6 +132,7 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/admin" element={<AdminPanel />} />
       </Routes>
     </Router>
   );

@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, CheckCircle2, X } from 'lucide-react';
+import { Send, CheckCircle2, X, MessageCircle } from 'lucide-react';
+import { useChat } from '../context/ChatContext';
 
 export default function Contact() {
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', message: '' });
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const { setIsOpen, setFormData: setChatFormData } = useChat();
+
+  const handleLiveChat = () => {
+    setChatFormData(formData);
+    setIsOpen(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -212,6 +219,14 @@ export default function Contact() {
                         {status === 'submitting' ? 'SENDING...' : 'SEND MESSAGE'}
                       </>
                     )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLiveChat}
+                    className="flex-1 font-semibold px-8 py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-accent-gold/50"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    LIVE CHAT
                   </button>
                 </div>
                 {status === 'error' && (

@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.email == "Rodbonds1169@gmail.com";
+    }
+
+    // Admin status
+    match /adminStatus/global {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Chat sessions
+    match /chatSessions/{sessionId} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == sessionId);
+      allow create: if true; // Visitors can start a chat
+      allow update: if isAdmin();
+    }
+
+    match /chatSessions/{sessionId}/messages/{messageId} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == sessionId);
+      allow create: if true; // Visitors can send messages
+    }
+  }
+}

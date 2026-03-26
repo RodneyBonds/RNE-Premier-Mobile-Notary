@@ -1,0 +1,52 @@
+{
+  "entities": {
+    "Message": {
+      "title": "Message",
+      "description": "A chat message",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "timestamp" }
+      },
+      "required": ["senderId", "senderName", "text", "timestamp"]
+    },
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "A chat session between a visitor and admin",
+      "type": "object",
+      "properties": {
+        "visitorName": { "type": "string" },
+        "visitorEmail": { "type": "string" },
+        "visitorPhone": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "closed"] },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["visitorName", "visitorEmail", "status", "createdAt"]
+    },
+    "AdminStatus": {
+      "title": "AdminStatus",
+      "description": "Global admin online status",
+      "type": "object",
+      "properties": {
+        "isOnline": { "type": "boolean" }
+      },
+      "required": ["isOnline"]
+    }
+  },
+  "firestore": {
+    "/chatSessions/{sessionId}": {
+      "schema": "ChatSession",
+      "description": "Chat sessions"
+    },
+    "/chatSessions/{sessionId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages within a chat session"
+    },
+    "/adminStatus/global": {
+      "schema": "AdminStatus",
+      "description": "Global admin status"
+    }
+  }
+}

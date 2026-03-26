@@ -25,13 +25,19 @@ export default function Contact() {
       
       if (!response.ok) {
         let errorMessage = 'Failed to send message';
+        // Clone the response so we can try parsing it as JSON, then as text
+        const responseClone = response.clone();
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
         } catch (e) {
-          // If response is not JSON, try to get text
-          const text = await response.text();
-          if (text) errorMessage = text;
+          // If response is not JSON, try to get text from the clone
+          try {
+            const text = await responseClone.text();
+            if (text) errorMessage = text;
+          } catch (textError) {
+            // Ignore text parsing error
+          }
         }
         throw new Error(errorMessage);
       }

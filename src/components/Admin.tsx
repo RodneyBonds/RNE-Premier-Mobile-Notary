@@ -678,8 +678,21 @@ export default function Admin() {
         {/* Debug Info (Only for Admin) */}
             <div className="mt-12 p-6 rounded-2xl bg-white/5 border border-white/10 max-w-4xl mx-auto">
               <h3 className="text-sm font-bold text-white/50 uppercase tracking-widest mb-4">System Debug Info</h3>
-              <div className="space-y-2 text-xs font-mono text-white/30">
-                <p>Webhook URL: <span className="text-white/60 select-all">https://ais-pre-ektsqthcod4xswgirhkehw-539831521677.asia-southeast1.run.app/api/webhooks/inbound</span></p>
+              <div className="space-y-4 text-xs font-mono text-white/30">
+                <div className="space-y-2">
+                  <p className="text-white/50 font-bold">LIVE SITE WEBHOOK (Use this in Resend.com):</p>
+                  <p className="p-2 rounded bg-white/5 text-accent-gold select-all border border-accent-gold/20">
+                    https://rnepremiermobilenotary.com/api/webhooks/inbound
+                  </p>
+                </div>
+                
+                <div className="space-y-2 opacity-50">
+                  <p>PREVIEW WEBHOOK (Only for AI Studio testing):</p>
+                  <p className="p-2 rounded bg-white/5 text-white/60 select-all border border-white/10">
+                    https://ais-pre-ektsqthcod4xswgirhkehw-539831521677.asia-southeast1.run.app/api/webhooks/inbound
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2 mt-4">
                   <div className={`p-2 rounded border ${serverConfig?.hasResendKey ? 'border-green-500/20 bg-green-500/5 text-green-400' : 'border-red-500/20 bg-red-500/5 text-red-400'}`}>
                     Resend API Key: {serverConfig?.hasResendKey ? `SET (${serverConfig.resendKey})` : 'MISSING'}

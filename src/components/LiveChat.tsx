@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, X, Send, User, Mail, CheckCircle2 } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firebase';
 import { useChat } from '../context/ChatContext';
 
@@ -121,6 +121,27 @@ export default function LiveChat() {
         text: text,
         timestamp: serverTimestamp()
       });
+
+      const sessionRef = doc(db, 'chatSessions', sessionId);
+      const sessionSnap = await getDoc(sessionRef);
+      if (sessionSnap.exists()) {
+        const currentStatus = sessionSnap.data().status;
+        if (currentStatus !== 'spam') {
+          await updateDoc(sessionRef, {
+            status: 'active',
+            updatedAt: serverTimestamp(),
+            hasUnreadMessages: true
+          });
+          console.log(`[SIMULATION] Email Notification: New message received from ${formData.name}`);
+          
+          setTimeout(async () => {
+            const checkSnap = await getDoc(sessionRef);
+            if (checkSnap.exists() && checkSnap.data().hasUnreadMessages) {
+              console.log(`[SIMULATION] Follow-up Email Notification: Unanswered message from ${formData.name}`);
+            }
+          }, 60000);
+        }
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'chatSessions/' + sessionId + '/messages');
     }

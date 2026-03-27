@@ -14,8 +14,10 @@ export default function AdminPanel() {
   const [reply, setReply] = useState('');
   const [adminName, setAdminName] = useState('Support Agent');
   const [showSettings, setShowSettings] = useState(false);
-  const [activeTab, setActiveTab] = useState('Open'); // 'Open', 'Done', 'Archived'
+  const [activeTab, setActiveTab] = useState('Active'); // 'Active', 'Ongoing', 'Done', 'Cancelled', 'Spam'
+  const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
   const messagesEndRef = useRef(null);
+  const TABS = ['Active', 'Ongoing', 'Done', 'Cancelled', 'Spam'];
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -45,6 +47,14 @@ export default function AdminPanel() {
   }, [selectedSession]);
 
   useEffect(() => {
+    if (selectedSession && selectedSession.hasUnreadMessages) {
+      updateDoc(doc(db, 'chatSessions', selectedSession.id), {
+        hasUnreadMessages: false
+      }).catch(e => console.error(e));
+    }
+  }, [selectedSession]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
@@ -64,6 +74,10 @@ export default function AdminPanel() {
         senderName: adminName,
         text: reply,
         timestamp: serverTimestamp()
+      });
+      await updateDoc(doc(db, 'chatSessions', selectedSession.id), {
+        hasUnreadMessages: false,
+        updatedAt: serverTimestamp()
       });
       setReply('');
     } catch (error) {
@@ -99,54 +113,74 @@ export default function AdminPanel() {
     }
   };
 
-  const endSession = async (sessionId) => {
-    if (!window.confirm('Are you sure you want to end this chat session?')) return;
-    try {
-      await updateDoc(doc(db, 'chatSessions', sessionId), {
-        status: 'ended',
-        endedAt: serverTimestamp()
-      });
-      if (selectedSession?.id === sessionId) {
-        setSelectedSession(null);
+  const confirmEndSession = (sessionId) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'End Session',
+      message: 'Are you sure you want to end this chat session?',
+      onConfirm: async () => {
+        try {
+          await updateDoc(doc(db, 'chatSessions', sessionId), {
+            status: 'ended',
+            endedAt: serverTimestamp()
+          });
+          if (selectedSession?.id === sessionId) {
+            setSelectedSession(null);
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.UPDATE, 'chatSessions/' + sessionId);
+        }
+        setConfirmModal(null);
       }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'chatSessions/' + sessionId);
-    }
+    });
   };
 
-  const deleteSession = async (sessionId) => {
-    if (!window.confirm('Are you sure you want to permanently delete this session and all its messages?')) return;
-    try {
-      await deleteDoc(doc(db, 'chatSessions', sessionId));
-      if (selectedSession?.id === sessionId) {
-        setSelectedSession(null);
+  const confirmDeleteSession = (sessionId) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Session',
+      message: 'Are you sure you want to permanently delete this session and all its messages?',
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'chatSessions', sessionId));
+          if (selectedSession?.id === sessionId) {
+            setSelectedSession(null);
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.DELETE, 'chatSessions/' + sessionId);
+        }
+        setConfirmModal(null);
       }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'chatSessions/' + sessionId);
-    }
+    });
   };
 
-  const sendEmailTranscript = async (session) => {
-    if (!window.confirm(`Send chat transcript to ${session.email}?`)) return;
-    try {
-      // In a real app, this would trigger a Cloud Function to send the email
-      await updateDoc(doc(db, 'chatSessions', session.id), {
-        transcriptSent: true,
-        transcriptSentAt: serverTimestamp()
-      });
-      
-      // Add a system message to the chat
-      await addDoc(collection(db, 'chatSessions', session.id, 'messages'), {
-        senderId: 'system',
-        senderName: 'System',
-        text: `Transcript sent to ${session.email}`,
-        timestamp: serverTimestamp()
-      });
-      
-      alert('Transcript email initiated (Simulation)');
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'chatSessions/' + session.id);
-    }
+  const confirmSendEmailTranscript = (session) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Send Transcript',
+      message: `Send chat transcript to ${session.email}?`,
+      onConfirm: async () => {
+        try {
+          // In a real app, this would trigger a Cloud Function to send the email
+          await updateDoc(doc(db, 'chatSessions', session.id), {
+            transcriptSent: true,
+            transcriptSentAt: serverTimestamp()
+          });
+          
+          // Add a system message to the chat
+          await addDoc(collection(db, 'chatSessions', session.id, 'messages'), {
+            senderId: 'system',
+            senderName: 'System',
+            text: `Transcript sent to ${session.email}`,
+            timestamp: serverTimestamp()
+          });
+          
+        } catch (error) {
+          handleFirestoreError(error, OperationType.UPDATE, 'chatSessions/' + session.id);
+        }
+        setConfirmModal(null);
+      }
+    });
   };
 
   const login = async (e: React.FormEvent) => {
@@ -161,9 +195,11 @@ export default function AdminPanel() {
 
   const filteredSessions = sessions.filter(session => {
     const status = session.status || 'active';
-    if (activeTab === 'Open') return ['active', 'ongoing', 'email_transferred'].includes(status);
+    if (activeTab === 'Active') return ['active', 'email_transferred'].includes(status);
+    if (activeTab === 'Ongoing') return status === 'ongoing';
     if (activeTab === 'Done') return status === 'done';
-    if (activeTab === 'Archived') return ['cancelled', 'spam'].includes(status);
+    if (activeTab === 'Cancelled') return status === 'cancelled';
+    if (activeTab === 'Spam') return status === 'spam';
     return true;
   });
 
@@ -255,12 +291,12 @@ export default function AdminPanel() {
                 <span className="bg-[var(--color-accent-gold)]/20 text-[var(--color-accent-gold)] py-0.5 px-2.5 rounded-full text-xs border border-[var(--color-accent-gold)]/30">{filteredSessions.length}</span>
               </h2>
             </div>
-            <div className="flex border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-bg-dark)]/40">
-              {['Open', 'Done', 'Archived'].map(tab => (
+            <div className="flex overflow-x-auto border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-bg-dark)]/40 custom-scrollbar">
+              {TABS.map(tab => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`flex-1 py-2.5 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
+                  className={`flex-1 min-w-[80px] py-2.5 px-2 text-xs sm:text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
                     activeTab === tab 
                       ? 'border-[var(--color-accent-gold)] text-[var(--color-accent-gold)] bg-[var(--color-accent-gold)]/5' 
                       : 'border-transparent text-gray-400 hover:text-gray-300 hover:bg-white/5'
@@ -284,6 +320,7 @@ export default function AdminPanel() {
                   <div className="flex justify-between items-start mb-2">
                     <div className="font-bold text-white truncate pr-2 flex items-center gap-2">
                       {session.name}
+                      {session.hasUnreadMessages && <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)]" title="Unread messages"></div>}
                       {session.status === 'email_transferred' && <Mail className="w-3 h-3 text-[var(--color-accent-gold)]" />}
                     </div>
                     <div className="text-[10px] text-[var(--color-accent-gold)]/80 whitespace-nowrap bg-[var(--color-accent-gold)]/10 px-2 py-0.5 rounded">
@@ -361,14 +398,14 @@ export default function AdminPanel() {
                     <div className="w-px h-6 bg-[var(--color-accent-gold)]/20 mx-1"></div>
                     
                     <button 
-                      onClick={() => sendEmailTranscript(selectedSession)}
+                      onClick={() => confirmSendEmailTranscript(selectedSession)}
                       className="p-1.5 sm:p-2 text-gray-400 hover:text-[var(--color-accent-gold)] hover:bg-[var(--color-accent-gold)]/10 rounded-lg transition-colors"
                       title="Send Transcript"
                     >
                       <Mail className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                     <button 
-                      onClick={() => deleteSession(selectedSession.id)}
+                      onClick={() => confirmDeleteSession(selectedSession.id)}
                       className="p-1.5 sm:p-2 text-gray-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
                       title="Delete Session"
                     >
@@ -447,6 +484,20 @@ export default function AdminPanel() {
           </div>
         </div>
       </main>
+      
+      {/* Custom Confirmation Modal */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[var(--color-bg-card)] border border-[var(--color-accent-gold)]/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-2">{confirmModal.title}</h3>
+            <p className="text-gray-300 mb-6">{confirmModal.message}</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmModal(null)} className="px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors">Cancel</button>
+              <button onClick={confirmModal.onConfirm} className="px-4 py-2 rounded-lg bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] text-[var(--color-bg-dark)] font-bold hover:scale-105 transition-transform">Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -88,6 +88,20 @@ export default function LiveChat() {
     }
   };
 
+  const sendMessage = async (text) => {
+    if (!sessionId) return;
+    try {
+      await addDoc(collection(db, 'chatSessions', sessionId, 'messages'), {
+        senderId: 'visitor',
+        senderName: formData.name,
+        text: text,
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'chatSessions/' + sessionId + '/messages');
+    }
+  };
+
   const requestEmailContinuation = async () => {
     if (!sessionId) return;
     try {
@@ -115,16 +129,9 @@ export default function LiveChat() {
   if (!isAdminOnline) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 font-sans">
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] p-4 rounded-full shadow-[0_0_15px_rgba(212,175,55,0.3)] hover:shadow-[0_0_25px_rgba(212,175,55,0.5)] hover:scale-105 transition-all duration-300 border border-[var(--color-accent-gold-light)]/50"
-      >
-        {isOpen ? <X className="w-7 h-7 text-[var(--color-bg-dark)]" /> : <MessageCircle className="w-7 h-7 text-[var(--color-bg-dark)]" />}
-      </button>
-
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 font-sans flex flex-col items-end">
       {isOpen && (
-        <div className="absolute bottom-20 right-0 w-[350px] max-w-[calc(100vw-3rem)] bg-[var(--color-bg-card)]/95 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[500px] border border-[var(--color-accent-gold)]/30">
+        <div className="mb-4 w-[calc(100vw-2rem)] sm:w-[380px] h-[500px] max-h-[calc(100vh-8rem)] bg-[var(--color-bg-card)]/95 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-[var(--color-accent-gold)]/30">
           {/* Header */}
           <div className="bg-gradient-to-r from-[var(--color-accent-navy-light)] to-[var(--color-bg-dark)] p-4 flex justify-between items-center shadow-md z-10 border-b border-[var(--color-accent-gold)]/20">
             <div className="flex items-center gap-3">
@@ -257,6 +264,13 @@ export default function LiveChat() {
           )}
         </div>
       )}
+
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] p-4 rounded-full shadow-[0_0_15px_rgba(212,175,55,0.3)] hover:shadow-[0_0_25px_rgba(212,175,55,0.5)] hover:scale-105 transition-all duration-300 border border-[var(--color-accent-gold-light)]/50"
+      >
+        {isOpen ? <X className="w-7 h-7 text-[var(--color-bg-dark)]" /> : <MessageCircle className="w-7 h-7 text-[var(--color-bg-dark)]" />}
+      </button>
     </div>
   );
 }

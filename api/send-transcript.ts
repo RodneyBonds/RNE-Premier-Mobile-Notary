@@ -30,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Send to Admin (with Reply-To set to Visitor)
     const adminEmailResult = await resend.emails.send({
-      from: `Live Chat <${fromEmail}>`,
+      from: `${name} <${fromEmail}>`,
       to: [adminEmail],
       replyTo: email,
       subject: `Chat Transcript: ${name}`,
@@ -54,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Send to Visitor (with Reply-To set to Admin)
     const visitorEmailResult = await resend.emails.send({
-      from: `Support <${fromEmail}>`,
+      from: `RNE Premier Mobile Notary Support <${fromEmail}>`,
       to: [email],
       replyTo: adminEmail,
       subject: `Your Chat Transcript with Support`,

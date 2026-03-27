@@ -39,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const { data, error } = await resend.emails.send({
-      from: `Live Chat Alert <${fromEmail}>`,
+      from: `${name} <${fromEmail}>`,
       to: [adminEmail],
       replyTo: email,
       subject,

@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const fromEmail = process.env.RESEND_FROM_EMAIL || 'rodney@rnepremiermobilenotary.com';
 
     const { data, error } = await resend.emails.send({
-      from: fromEmail,
+      from: `${name} <${fromEmail}>`,
       to: ['rodney@rnepremiermobilenotary.com'],
       replyTo: email,
       subject: `New Contact Form: ${name}`,

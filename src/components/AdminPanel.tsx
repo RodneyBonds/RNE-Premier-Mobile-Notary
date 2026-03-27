@@ -3,7 +3,7 @@ import { db, auth } from '../lib/firebase';
 import { collection, doc, setDoc, onSnapshot, query, orderBy, addDoc, serverTimestamp, updateDoc, deleteDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { handleFirestoreError, OperationType } from '../lib/firebase';
-import { MessageCircle, Power, Send, User, Clock, CheckCircle2, Trash2, Mail, Settings, Shield, AlertTriangle, PlayCircle, CheckCircle, XCircle } from 'lucide-react';
+import { MessageCircle, Power, Send, User, Clock, CheckCircle2, Trash2, Mail, Settings, Shield } from 'lucide-react';
 
 export default function AdminPanel() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -14,7 +14,7 @@ export default function AdminPanel() {
   const [reply, setReply] = useState('');
   const [adminName, setAdminName] = useState('Support Agent');
   const [showSettings, setShowSettings] = useState(false);
-  const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'status'
+  const [activeTab, setActiveTab] = useState('Open'); // 'Open', 'Done', 'Archived'
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -159,11 +159,12 @@ export default function AdminPanel() {
     }
   };
 
-  const sortedSessions = [...sessions].sort((a, b) => {
-    if (sortBy === 'newest') return b.createdAt?.toMillis() - a.createdAt?.toMillis();
-    if (sortBy === 'oldest') return a.createdAt?.toMillis() - b.createdAt?.toMillis();
-    if (sortBy === 'status') return a.status.localeCompare(b.status);
-    return 0;
+  const filteredSessions = sessions.filter(session => {
+    const status = session.status || 'active';
+    if (activeTab === 'Open') return ['active', 'ongoing', 'email_transferred'].includes(status);
+    if (activeTab === 'Done') return status === 'done';
+    if (activeTab === 'Archived') return ['cancelled', 'spam'].includes(status);
+    return true;
   });
 
   if (!isLoggedIn) {
@@ -250,21 +251,27 @@ export default function AdminPanel() {
             <div className="p-4 border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/30 flex justify-between items-center">
               <h2 className="font-bold text-white flex items-center gap-2">
                 <Clock className="w-4 h-4 text-[var(--color-accent-gold)]" />
-                Active Sessions
-                <span className="bg-[var(--color-accent-gold)]/20 text-[var(--color-accent-gold)] py-0.5 px-2.5 rounded-full text-xs border border-[var(--color-accent-gold)]/30">{sessions.length}</span>
+                Conversations
+                <span className="bg-[var(--color-accent-gold)]/20 text-[var(--color-accent-gold)] py-0.5 px-2.5 rounded-full text-xs border border-[var(--color-accent-gold)]/30">{filteredSessions.length}</span>
               </h2>
-              <select 
-                value={sortBy} 
-                onChange={(e) => setSortBy(e.target.value)}
-                className="bg-[var(--color-bg-dark)] text-xs text-gray-300 border border-[var(--color-accent-gold)]/30 rounded px-2 py-1 outline-none"
-              >
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-                <option value="status">By Status</option>
-              </select>
+            </div>
+            <div className="flex border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-bg-dark)]/40">
+              {['Open', 'Done', 'Archived'].map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 py-2.5 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
+                    activeTab === tab 
+                      ? 'border-[var(--color-accent-gold)] text-[var(--color-accent-gold)] bg-[var(--color-accent-gold)]/5' 
+                      : 'border-transparent text-gray-400 hover:text-gray-300 hover:bg-white/5'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
             <div className="overflow-y-auto flex-1 p-3 space-y-2 custom-scrollbar">
-              {sortedSessions.map(session => (
+              {filteredSessions.map(session => (
                 <button 
                   key={session.id}
                   onClick={() => setSelectedSession(session)}
@@ -300,12 +307,12 @@ export default function AdminPanel() {
                   </div>
                 </button>
               ))}
-              {sessions.length === 0 && (
+              {filteredSessions.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-4 p-8">
                   <div className="w-16 h-16 rounded-full bg-[var(--color-accent-navy-light)]/50 flex items-center justify-center border border-[var(--color-accent-gold)]/10">
                     <CheckCircle2 className="w-8 h-8 text-[var(--color-accent-gold)]/50" />
                   </div>
-                  <p className="text-sm text-center">No active communications.</p>
+                  <p className="text-sm text-center">No {activeTab.toLowerCase()} communications.</p>
                 </div>
               )}
             </div>
@@ -328,20 +335,31 @@ export default function AdminPanel() {
                   </div>
                   
                   {/* Admin Controls */}
-                  <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
-                    <button onClick={() => updateSessionStatus(selectedSession.id, 'ongoing')} className="p-1.5 sm:p-2 text-gray-400 hover:text-green-400 hover:bg-green-400/10 rounded-lg transition-colors" title="Mark Ongoing">
-                      <PlayCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
-                    <button onClick={() => updateSessionStatus(selectedSession.id, 'done')} className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors" title="Mark Done">
-                      <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
-                    <button onClick={() => updateSessionStatus(selectedSession.id, 'cancelled')} className="p-1.5 sm:p-2 text-gray-400 hover:text-orange-400 hover:bg-orange-400/10 rounded-lg transition-colors" title="Cancel">
-                      <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+                    <div className="relative">
+                      <select
+                        value={selectedSession.status || 'active'}
+                        onChange={(e) => updateSessionStatus(selectedSession.id, e.target.value)}
+                        className={`appearance-none pl-3 pr-8 py-1.5 rounded-full text-xs font-bold border outline-none cursor-pointer transition-colors ${
+                          ['active', 'ongoing'].includes(selectedSession.status || 'active') ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20' :
+                          selectedSession.status === 'done' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20' :
+                          selectedSession.status === 'email_transferred' ? 'bg-purple-500/10 text-purple-400 border-purple-500/30 hover:bg-purple-500/20' :
+                          'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20'
+                        }`}
+                      >
+                        <option value="active" className="bg-[var(--color-bg-dark)] text-white">🟢 Active</option>
+                        <option value="ongoing" className="bg-[var(--color-bg-dark)] text-white">🔵 Ongoing</option>
+                        <option value="done" className="bg-[var(--color-bg-dark)] text-white">✓ Done</option>
+                        <option value="cancelled" className="bg-[var(--color-bg-dark)] text-white">✕ Cancelled</option>
+                        <option value="spam" className="bg-[var(--color-bg-dark)] text-white">⚠️ Spam</option>
+                      </select>
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <svg className="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                      </div>
+                    </div>
+
                     <div className="w-px h-6 bg-[var(--color-accent-gold)]/20 mx-1"></div>
-                    <button onClick={() => updateSessionStatus(selectedSession.id, 'spam')} className="p-1.5 sm:p-2 text-gray-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors" title="Mark Spam">
-                      <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
+                    
                     <button 
                       onClick={() => sendEmailTranscript(selectedSession)}
                       className="p-1.5 sm:p-2 text-gray-400 hover:text-[var(--color-accent-gold)] hover:bg-[var(--color-accent-gold)]/10 rounded-lg transition-colors"

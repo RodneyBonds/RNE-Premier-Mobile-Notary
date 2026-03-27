@@ -3,7 +3,7 @@ import { db, auth } from '../lib/firebase';
 import { collection, doc, setDoc, onSnapshot, query, orderBy, addDoc, serverTimestamp, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { handleFirestoreError, OperationType } from '../lib/firebase';
-import { MessageCircle, Power, Send, User, Clock, CheckCircle2, Trash2, Mail, Settings, Shield, Phone, Pin } from 'lucide-react';
+import { MessageCircle, Power, Send, User, Clock, CheckCircle2, Trash2, Mail, Settings, Shield, Phone, Pin, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminPanel() {
@@ -15,6 +15,7 @@ export default function AdminPanel() {
   const [reply, setReply] = useState('');
   const [adminName, setAdminName] = useState('Support Agent');
   const [showSettings, setShowSettings] = useState(false);
+  const [showInquiriesModal, setShowInquiriesModal] = useState(false);
   const [activeTab, setActiveTab] = useState('Active'); // 'Active', 'Ongoing', 'Done', 'Cancelled', 'Spam'
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
   const [pinnedNotes, setPinnedNotes] = useState('');
@@ -33,7 +34,7 @@ export default function AdminPanel() {
     const unsubSessions = onSnapshot(q, (snapshot) => {
       setSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
-    
+
     return () => { unsubAdmin(); unsubSessions(); };
   }, [isLoggedIn]);
 
@@ -265,7 +266,7 @@ export default function AdminPanel() {
     if (activeTab === 'Done') return status === 'done';
     if (activeTab === 'Cancelled') return status === 'cancelled';
     if (activeTab === 'Spam') return status === 'spam';
-    return true;
+    return false;
   });
 
   if (!isLoggedIn) {
@@ -412,6 +413,12 @@ export default function AdminPanel() {
           </div>
           
           <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-6">
+            <button 
+              onClick={() => setShowInquiriesModal(true)}
+              className="bg-[var(--color-accent-gold)] text-[var(--color-bg-dark)] px-4 py-2 rounded-full text-sm font-bold hover:scale-105 transition-transform"
+            >
+              Manage Inquiries
+            </button>
             <div className="flex items-center gap-3 bg-[var(--color-accent-navy-light)]/50 px-4 py-2 rounded-full border border-[var(--color-accent-gold)]/20">
               <User className="w-4 h-4 text-[var(--color-accent-gold)]" />
               <input 
@@ -477,53 +484,53 @@ export default function AdminPanel() {
               ))}
             </div>
             <div className="overflow-y-auto flex-1 p-3 space-y-2 custom-scrollbar">
-              <AnimatePresence>
-                {filteredSessions.map((session: any) => (
-                  <motion.button 
-                    layout
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-                    key={session.id}
-                    onClick={() => setSelectedSession(session)}
-                    className={`w-full text-left p-4 rounded-xl transition-all duration-300 relative overflow-hidden ${
-                      selectedSession?.id === session.id 
-                        ? 'bg-[var(--color-accent-navy-light)]/80 shadow-[0_0_15px_rgba(212,175,55,0.15)]' 
-                        : 'bg-[var(--color-bg-dark)]/30 hover:bg-[var(--color-accent-navy-light)]/40'
-                    }`}
-                  >
-                  {selectedSession?.id === session.id && (
-                    <motion.div 
-                      layoutId="activeSessionBorder"
-                      className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[var(--color-accent-gold-light)] to-[var(--color-accent-gold-dark)] shadow-[0_0_10px_rgba(212,175,55,0.8)]"
-                    />
-                  )}
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="font-bold text-white truncate pr-2 flex items-center gap-2">
-                      {session.name}
-                      {session.hasUnreadMessages && <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)]" title="Unread messages"></div>}
-                      {session.status === 'email_transferred' && <Mail className="w-3 h-3 text-[var(--color-accent-gold)]" />}
-                    </div>
-                    <div className="text-[10px] text-[var(--color-accent-gold)]/80 whitespace-nowrap bg-[var(--color-accent-gold)]/10 px-2 py-0.5 rounded">
-                      {session.createdAt?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-400 truncate flex items-center gap-2">
-                    <Mail className="w-3 h-3" />
-                    {session.email}
-                  </div>
-                  <div className="mt-2 flex items-center gap-2 flex-wrap">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
-                      session.status === 'active' || session.status === 'ongoing' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
-                      session.status === 'done' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                      session.status === 'cancelled' || session.status === 'spam' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                      session.status === 'email_transferred' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                      'bg-gray-500/10 text-gray-400 border-gray-500/20'
-                    }`}>
-                      {session.status || 'active'}
-                    </span>
-                  </div>
-                </motion.button>
-              ))}
-              </AnimatePresence>
+                <AnimatePresence>
+                  {filteredSessions.map((session: any) => (
+                    <motion.button 
+                      layout
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                      key={session.id}
+                      onClick={() => { setSelectedSession(session); }}
+                      className={`w-full text-left p-4 rounded-xl transition-all duration-300 relative overflow-hidden ${
+                        selectedSession?.id === session.id 
+                          ? 'bg-[var(--color-accent-navy-light)]/80 shadow-[0_0_15px_rgba(212,175,55,0.15)]' 
+                          : 'bg-[var(--color-bg-dark)]/30 hover:bg-[var(--color-accent-navy-light)]/40'
+                      }`}
+                    >
+                      {selectedSession?.id === session.id && (
+                        <motion.div 
+                          layoutId="activeSessionBorder"
+                          className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[var(--color-accent-gold-light)] to-[var(--color-accent-gold-dark)] shadow-[0_0_10px_rgba(212,175,55,0.8)]"
+                        />
+                      )}
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="font-bold text-white truncate pr-2 flex items-center gap-2">
+                          {session.name}
+                          {session.hasUnreadMessages && <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)]" title="Unread messages"></div>}
+                          {session.status === 'email_transferred' && <Mail className="w-3 h-3 text-[var(--color-accent-gold)]" />}
+                        </div>
+                        <div className="text-[10px] text-[var(--color-accent-gold)]/80 whitespace-nowrap bg-[var(--color-accent-gold)]/10 px-2 py-0.5 rounded">
+                          {session.createdAt?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400 truncate flex items-center gap-2">
+                        <Mail className="w-3 h-3" />
+                        {session.email}
+                      </div>
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                          session.status === 'active' || session.status === 'ongoing' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
+                          session.status === 'done' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                          session.status === 'cancelled' || session.status === 'spam' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                          session.status === 'email_transferred' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                          'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                        }`}>
+                          {session.status || 'active'}
+                        </span>
+                      </div>
+                    </motion.button>
+                  ))}
+                </AnimatePresence>
               {filteredSessions.length === 0 && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center h-full text-gray-500 space-y-4 p-8">
                   <div className="w-16 h-16 rounded-full bg-[var(--color-accent-navy-light)]/30 flex items-center justify-center border border-[var(--color-accent-gold)]/10">
@@ -743,6 +750,74 @@ export default function AdminPanel() {
         </motion.div>
       )}
       </AnimatePresence>
+
+      {/* Inquiries Modal */}
+      <AnimatePresence>
+        {showInquiriesModal && (
+          <InquiriesModal onClose={() => setShowInquiriesModal(false)} />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function InquiriesModal({ onClose }: { onClose: () => void }) {
+  const [inquiries, setInquiries] = useState([]);
+
+  useEffect(() => {
+    const inquiriesRef = collection(db, 'inquiries');
+    const q = query(inquiriesRef, orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      setInquiries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsub();
+  }, []);
+
+  const updateStatus = async (id: string, status: string) => {
+    try {
+      await updateDoc(doc(db, 'inquiries', id), { status });
+    } catch (error) {
+      console.error('Error updating status:', error);
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+    >
+      <motion.div 
+        initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+        className="glass-panel rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] flex flex-col"
+      >
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-white">Manage Inquiries</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-6 h-6" /></button>
+        </div>
+        <div className="overflow-y-auto custom-scrollbar flex-1 space-y-4">
+          {inquiries.map((inquiry: any) => (
+            <div key={inquiry.id} className="bg-[var(--color-bg-dark)]/50 p-4 rounded-xl border border-white/10">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="font-bold text-white">{inquiry.name}</h4>
+                  <p className="text-sm text-gray-400">{inquiry.email} • {inquiry.phone}</p>
+                </div>
+                <select
+                  value={inquiry.status}
+                  onChange={(e) => updateStatus(inquiry.id, e.target.value)}
+                  className="bg-[var(--color-bg-dark)] text-white text-xs p-2 rounded-lg border border-white/10"
+                >
+                  <option value="Started">Started</option>
+                  <option value="Ongoing">Ongoing</option>
+                  <option value="Done">Done</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+              <p className="mt-2 text-sm text-gray-300">{inquiry.message}</p>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

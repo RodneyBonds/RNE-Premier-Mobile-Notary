@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Send, CheckCircle2, X, MessageCircle } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
+import { db } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function Contact() {
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', message: '' });
@@ -22,6 +24,14 @@ export default function Contact() {
     setStatus('submitting');
     setErrorMessage(null);
     try {
+      // 1. Save to Firestore
+      await addDoc(collection(db, 'inquiries'), {
+        ...formData,
+        status: 'Started',
+        createdAt: serverTimestamp(),
+      });
+
+      // 2. Send email
       const response = await fetch('/api/send-message', {
         method: 'POST',
         headers: {

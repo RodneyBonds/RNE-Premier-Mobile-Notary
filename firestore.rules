@@ -10,6 +10,12 @@ service cloud.firestore {
       return isAuthenticated() && (request.auth.token.email == "Rodbonds1169@gmail.com" || request.auth.token.email == "adminrodney@rnepremiermobilenotary.com");
     }
 
+    // Inquiries
+    match /inquiries/{inquiryId} {
+      allow create: if true; // Visitors can submit inquiries
+      allow read, update, delete: if isAdmin(); // Admins can manage inquiries
+    }
+
     // Admin status
     match /adminStatus/global {
       allow read: if true;

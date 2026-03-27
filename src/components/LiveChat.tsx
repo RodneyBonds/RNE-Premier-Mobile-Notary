@@ -46,6 +46,30 @@ export default function LiveChat() {
     return () => unsubAdmin();
   }, []);
 
+  const resetChat = () => {
+    setSessionId(null);
+    setChatStarted(false);
+    setMessages([]);
+    localStorage.removeItem('chatSessionId');
+  };
+
+  useEffect(() => {
+    if (sessionId) {
+      const sessionRef = doc(db, 'chatSessions', sessionId);
+      const unsubSession = onSnapshot(sessionRef, (docSnap) => {
+        if (!docSnap.exists()) {
+          resetChat();
+        } else {
+          const data = docSnap.data();
+          if (data.status === 'deleted' || data.status === 'spam') {
+            resetChat();
+          }
+        }
+      });
+      return () => unsubSession();
+    }
+  }, [sessionId]);
+
   useEffect(() => {
     if (sessionId) {
       const messagesRef = collection(db, 'chatSessions', sessionId, 'messages');

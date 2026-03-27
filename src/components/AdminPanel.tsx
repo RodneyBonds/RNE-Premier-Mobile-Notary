@@ -3,7 +3,7 @@ import { db, auth } from '../lib/firebase';
 import { collection, doc, setDoc, onSnapshot, query, orderBy, addDoc, serverTimestamp, updateDoc, deleteDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { handleFirestoreError, OperationType } from '../lib/firebase';
-import { MessageCircle, Power, Send, User, Clock, CheckCircle2, Trash2, Mail, Settings, Shield } from 'lucide-react';
+import { MessageCircle, Power, Send, User, Clock, CheckCircle2, Trash2, Mail, Settings, Shield, AlertTriangle, PlayCircle, CheckCircle, XCircle } from 'lucide-react';
 
 export default function AdminPanel() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -14,6 +14,7 @@ export default function AdminPanel() {
   const [reply, setReply] = useState('');
   const [adminName, setAdminName] = useState('Support Agent');
   const [showSettings, setShowSettings] = useState(false);
+  const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'status'
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -67,6 +68,34 @@ export default function AdminPanel() {
       setReply('');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'chatSessions/' + selectedSession.id + '/messages');
+    }
+  };
+
+  const updateSessionStatus = async (sessionId, newStatus) => {
+    try {
+      await updateDoc(doc(db, 'chatSessions', sessionId), {
+        status: newStatus,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Add system message about status change
+      let statusMessage = '';
+      if (newStatus === 'ongoing') statusMessage = 'Conversation marked as ongoing.';
+      if (newStatus === 'done') statusMessage = 'Conversation marked as done.';
+      if (newStatus === 'cancelled') statusMessage = 'Conversation cancelled.';
+      if (newStatus === 'spam') statusMessage = 'Conversation marked as spam.';
+
+      if (statusMessage) {
+        await addDoc(collection(db, 'chatSessions', sessionId, 'messages'), {
+          senderId: 'system',
+          senderName: 'System',
+          text: statusMessage,
+          timestamp: serverTimestamp()
+        });
+      }
+
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'chatSessions/' + sessionId);
     }
   };
 
@@ -129,6 +158,13 @@ export default function AdminPanel() {
       alert('Login failed');
     }
   };
+
+  const sortedSessions = [...sessions].sort((a, b) => {
+    if (sortBy === 'newest') return b.createdAt?.toMillis() - a.createdAt?.toMillis();
+    if (sortBy === 'oldest') return a.createdAt?.toMillis() - b.createdAt?.toMillis();
+    if (sortBy === 'status') return a.status.localeCompare(b.status);
+    return 0;
+  });
 
   if (!isLoggedIn) {
     return (
@@ -211,15 +247,24 @@ export default function AdminPanel() {
           
           {/* Sessions List */}
           <div className="lg:col-span-1 h-[400px] lg:h-full bg-[var(--color-bg-card)]/60 backdrop-blur-md rounded-2xl shadow-xl border border-[var(--color-accent-gold)]/20 flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/30">
+            <div className="p-4 border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/30 flex justify-between items-center">
               <h2 className="font-bold text-white flex items-center gap-2">
                 <Clock className="w-4 h-4 text-[var(--color-accent-gold)]" />
                 Active Sessions
-                <span className="bg-[var(--color-accent-gold)]/20 text-[var(--color-accent-gold)] py-0.5 px-2.5 rounded-full text-xs ml-auto border border-[var(--color-accent-gold)]/30">{sessions.length}</span>
+                <span className="bg-[var(--color-accent-gold)]/20 text-[var(--color-accent-gold)] py-0.5 px-2.5 rounded-full text-xs border border-[var(--color-accent-gold)]/30">{sessions.length}</span>
               </h2>
+              <select 
+                value={sortBy} 
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-[var(--color-bg-dark)] text-xs text-gray-300 border border-[var(--color-accent-gold)]/30 rounded px-2 py-1 outline-none"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="status">By Status</option>
+              </select>
             </div>
             <div className="overflow-y-auto flex-1 p-3 space-y-2 custom-scrollbar">
-              {sessions.map(session => (
+              {sortedSessions.map(session => (
                 <button 
                   key={session.id}
                   onClick={() => setSelectedSession(session)}
@@ -242,10 +287,12 @@ export default function AdminPanel() {
                     <Mail className="w-3 h-3" />
                     {session.email}
                   </div>
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
-                      session.status === 'active' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
-                      session.status === 'email_transferred' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                      session.status === 'active' || session.status === 'ongoing' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
+                      session.status === 'done' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                      session.status === 'cancelled' || session.status === 'spam' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                      session.status === 'email_transferred' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
                       'bg-gray-500/10 text-gray-400 border-gray-500/20'
                     }`}>
                       {session.status || 'active'}
@@ -281,27 +328,33 @@ export default function AdminPanel() {
                   </div>
                   
                   {/* Admin Controls */}
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => sendEmailTranscript(selectedSession)}
-                      className="p-2 text-gray-400 hover:text-[var(--color-accent-gold)] hover:bg-[var(--color-accent-gold)]/10 rounded-lg transition-colors"
-                      title="Send Transcript"
-                    >
-                      <Mail className="w-5 h-5" />
+                  <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
+                    <button onClick={() => updateSessionStatus(selectedSession.id, 'ongoing')} className="p-1.5 sm:p-2 text-gray-400 hover:text-green-400 hover:bg-green-400/10 rounded-lg transition-colors" title="Mark Ongoing">
+                      <PlayCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </button>
+                    <button onClick={() => updateSessionStatus(selectedSession.id, 'done')} className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors" title="Mark Done">
+                      <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </button>
+                    <button onClick={() => updateSessionStatus(selectedSession.id, 'cancelled')} className="p-1.5 sm:p-2 text-gray-400 hover:text-orange-400 hover:bg-orange-400/10 rounded-lg transition-colors" title="Cancel">
+                      <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </button>
+                    <div className="w-px h-6 bg-[var(--color-accent-gold)]/20 mx-1"></div>
+                    <button onClick={() => updateSessionStatus(selectedSession.id, 'spam')} className="p-1.5 sm:p-2 text-gray-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors" title="Mark Spam">
+                      <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                     <button 
-                      onClick={() => endSession(selectedSession.id)}
-                      className="p-2 text-gray-400 hover:text-orange-400 hover:bg-orange-400/10 rounded-lg transition-colors"
-                      title="End Session"
+                      onClick={() => sendEmailTranscript(selectedSession)}
+                      className="p-1.5 sm:p-2 text-gray-400 hover:text-[var(--color-accent-gold)] hover:bg-[var(--color-accent-gold)]/10 rounded-lg transition-colors"
+                      title="Send Transcript"
                     >
-                      <Power className="w-5 h-5" />
+                      <Mail className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                     <button 
                       onClick={() => deleteSession(selectedSession.id)}
-                      className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                      className="p-1.5 sm:p-2 text-gray-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
                       title="Delete Session"
                     >
-                      <Trash2 className="w-5 h-5" />
+                      <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   </div>
                 </div>

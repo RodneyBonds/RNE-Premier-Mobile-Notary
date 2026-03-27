@@ -3,7 +3,7 @@ import { db, auth } from '../lib/firebase';
 import { collection, doc, setDoc, onSnapshot, query, orderBy, addDoc, serverTimestamp, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { handleFirestoreError, OperationType } from '../lib/firebase';
-import { MessageCircle, Power, Send, User, Clock, CheckCircle2, Trash2, Mail, Settings, Shield } from 'lucide-react';
+import { MessageCircle, Power, Send, User, Clock, CheckCircle2, Trash2, Mail, Settings, Shield, Phone, Pin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminPanel() {
@@ -17,6 +17,7 @@ export default function AdminPanel() {
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState('Active'); // 'Active', 'Ongoing', 'Done', 'Cancelled', 'Spam'
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
+  const [pinnedNotes, setPinnedNotes] = useState('');
   const messagesEndRef = useRef(null);
   const TABS = ['Active', 'Ongoing', 'Done', 'Cancelled', 'Spam'];
 
@@ -38,6 +39,7 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (selectedSession) {
+      setPinnedNotes(selectedSession.notes || '');
       const messagesRef = collection(db, 'chatSessions', selectedSession.id, 'messages');
       const q = query(messagesRef, orderBy('timestamp', 'asc'));
       const unsubMessages = onSnapshot(q, (snapshot) => {
@@ -161,6 +163,33 @@ export default function AdminPanel() {
         setConfirmModal(null);
       }
     });
+  };
+
+  const requestPhone = async (sessionId) => {
+    try {
+      await updateDoc(doc(db, 'chatSessions', sessionId), {
+        phoneRequested: true
+      });
+      await addDoc(collection(db, 'chatSessions', sessionId, 'messages'), {
+        senderId: 'system',
+        senderName: 'System',
+        text: 'Phone number requested from visitor.',
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'chatSessions/' + sessionId);
+    }
+  };
+
+  const saveNotes = async () => {
+    if (!selectedSession) return;
+    try {
+      await updateDoc(doc(db, 'chatSessions', selectedSession.id), {
+        notes: pinnedNotes
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'chatSessions/' + selectedSession.id);
+    }
   };
 
   const confirmSendEmailTranscript = (session) => {
@@ -291,11 +320,82 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-dark)] font-sans text-white relative overflow-hidden">
-      {/* Animated Background Effects */}
+      {/* Background Gradients / Glows */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-[var(--color-accent-gold)]/5 rounded-full mix-blend-screen filter blur-[120px] animate-blob"></div>
-        <div className="absolute top-[20%] right-[-10%] w-[40vw] h-[40vw] bg-blue-500/5 rounded-full mix-blend-screen filter blur-[120px] animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-[-20%] left-[20%] w-[40vw] h-[40vw] bg-[var(--color-accent-navy-light)]/10 rounded-full mix-blend-screen filter blur-[120px] animate-blob animation-delay-4000"></div>
+        {/* Animated Grid Overlay with Radial Mask */}
+        <motion.div 
+          className="absolute inset-0 opacity-[0.06]" 
+          style={{ 
+            backgroundImage: 'linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)', 
+            backgroundSize: '4rem 4rem',
+            maskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, #000 20%, transparent 100%)',
+            WebkitMaskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, #000 20%, transparent 100%)'
+          }}
+          animate={{
+            backgroundPosition: ['0px 0px', '64px 64px']
+          }}
+          transition={{
+            duration: 15,
+            ease: "linear",
+            repeat: Infinity
+          }}
+        />
+
+        {/* Floating Particles */}
+        {[...Array(25)].map((_, i) => (
+          <motion.div
+            key={`particle-${i}`}
+            className="absolute rounded-full bg-[var(--color-accent-gold)]/40"
+            style={{
+              width: Math.random() * 4 + 1 + 'px',
+              height: Math.random() * 4 + 1 + 'px',
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              y: [0, -150 - Math.random() * 100],
+              x: [0, (Math.random() - 0.5) * 100],
+              opacity: [0, Math.random() * 0.5 + 0.3, 0],
+            }}
+            transition={{
+              duration: Math.random() * 10 + 10,
+              repeat: Infinity,
+              ease: "linear",
+              delay: Math.random() * 10
+            }}
+          />
+        ))}
+
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.3, 1],
+            opacity: [0.1, 0.3, 0.1],
+            x: [0, 150, -100, 0],
+            y: [0, -150, 100, 0]
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[10%] left-[10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px] mix-blend-screen"
+        />
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.4, 1],
+            opacity: [0.1, 0.2, 0.1],
+            x: [0, -150, 100, 0],
+            y: [0, 150, -100, 0]
+          }}
+          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+          className="absolute bottom-[10%] right-[10%] w-[50%] h-[50%] bg-[var(--color-accent-gold)]/10 rounded-full blur-[150px] mix-blend-screen"
+        />
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.2, 1],
+            opacity: [0.1, 0.3, 0.1],
+            x: [0, 100, -150, 0],
+            y: [0, 100, -150, 0]
+          }}
+          transition={{ duration: 22, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          className="absolute top-[40%] left-[40%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[120px] mix-blend-screen"
+        />
       </div>
       
       {/* Header */}
@@ -341,7 +441,7 @@ export default function AdminPanel() {
       </motion.header>
       
       <main className="max-w-7xl mx-auto p-4 sm:p-6 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto lg:h-[calc(100vh-140px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-auto lg:h-[calc(100vh-140px)]">
           
           {/* Sessions List */}
           <motion.div 
@@ -481,6 +581,13 @@ export default function AdminPanel() {
                     <div className="w-px h-6 bg-[var(--color-accent-gold)]/20 mx-1"></div>
                     
                     <button 
+                      onClick={() => requestPhone(selectedSession.id)}
+                      className="p-1.5 sm:p-2 text-gray-400 hover:text-[var(--color-accent-gold)] hover:bg-[var(--color-accent-gold)]/10 rounded-lg transition-colors"
+                      title="Request Phone Number"
+                    >
+                      <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </button>
+                    <button 
                       onClick={() => confirmSendEmailTranscript(selectedSession)}
                       className="p-1.5 sm:p-2 text-gray-400 hover:text-[var(--color-accent-gold)] hover:bg-[var(--color-accent-gold)]/10 rounded-lg transition-colors"
                       title="Send Transcript"
@@ -571,6 +678,46 @@ export default function AdminPanel() {
                 <p className="text-sm text-gray-400">Choose an active session from the sidebar to begin.</p>
               </motion.div>
             )}
+          </motion.div>
+
+          {/* Pinned Info Area */}
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
+            className="lg:col-span-1 h-[300px] lg:h-full glass-panel rounded-2xl flex flex-col overflow-hidden"
+          >
+            <div className="p-4 border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/20 flex justify-between items-center">
+              <h2 className="font-bold text-white flex items-center gap-2">
+                <Pin className="w-4 h-4 text-[var(--color-accent-gold)]" />
+                Pinned Info
+              </h2>
+            </div>
+            <div className="flex-1 p-4 flex flex-col bg-[var(--color-bg-dark)]/20">
+              {selectedSession ? (
+                <>
+                  <p className="text-xs text-gray-400 mb-2">Save important details like address, phone, or specific requests here. Only visible to admins.</p>
+                  <textarea
+                    value={pinnedNotes}
+                    onChange={(e) => setPinnedNotes(e.target.value)}
+                    onBlur={saveNotes}
+                    placeholder="Add notes here..."
+                    className="flex-1 w-full glass-input rounded-xl p-3 text-white text-sm outline-none transition-all placeholder-gray-500 resize-none custom-scrollbar"
+                  />
+                  <div className="mt-3 flex justify-end">
+                    <button 
+                      onClick={saveNotes}
+                      className="bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] text-[var(--color-bg-dark)] font-bold py-1.5 px-4 rounded-lg text-sm hover:scale-105 transition-transform shadow-[0_0_10px_rgba(212,175,55,0.3)]"
+                    >
+                      Save Notes
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-gray-500 text-sm text-center">
+                  <Pin className="w-8 h-8 text-gray-600 mb-2 opacity-50" />
+                  <p>Select a session to view or add pinned notes.</p>
+                </div>
+              )}
+            </div>
           </motion.div>
         </div>
       </main>

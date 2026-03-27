@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X, Send, User, Mail, CheckCircle2 } from 'lucide-react';
+import { MessageCircle, X, Send, User, Mail, CheckCircle2, Loader2, Phone } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, getDoc, getDocs } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firebase';
@@ -14,6 +14,10 @@ export default function LiveChat() {
   const [chatStarted, setChatStarted] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [emailSent, setEmailSent] = useState(false);
+  const [isStartingChat, setIsStartingChat] = useState(false);
+  const [phoneRequested, setPhoneRequested] = useState(false);
+  const [visitorPhone, setVisitorPhone] = useState('');
+  const [tempPhone, setTempPhone] = useState('');
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -51,6 +55,8 @@ export default function LiveChat() {
     setSessionId(null);
     setChatStarted(false);
     setMessages([]);
+    setPhoneRequested(false);
+    setVisitorPhone('');
     localStorage.removeItem('chatSessionId');
   };
 
@@ -64,6 +70,9 @@ export default function LiveChat() {
           const data = docSnap.data();
           if (data.status === 'deleted' || data.status === 'spam') {
             resetChat();
+          } else {
+            setPhoneRequested(data.phoneRequested || false);
+            setVisitorPhone(data.phone || '');
           }
         }
       });
@@ -86,10 +95,33 @@ export default function LiveChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const submitPhone = async (e) => {
+    e.preventDefault();
+    if (!tempPhone.trim() || !sessionId) return;
+    
+    try {
+      await updateDoc(doc(db, 'chatSessions', sessionId), {
+        phone: tempPhone,
+        phoneRequested: false
+      });
+      await addDoc(collection(db, 'chatSessions', sessionId, 'messages'), {
+        senderId: 'visitor',
+        senderName: formData.name || 'Visitor',
+        text: `Provided phone number: ${tempPhone}`,
+        timestamp: serverTimestamp()
+      });
+      setVisitorPhone(tempPhone);
+      setPhoneRequested(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'chatSessions/' + sessionId);
+    }
+  };
+
   const startChat = async (e) => {
     e.preventDefault();
     if (!isAdminOnline) return;
     
+    setIsStartingChat(true);
     try {
       const sessionRef = await addDoc(collection(db, 'chatSessions'), {
         ...formData,
@@ -110,6 +142,8 @@ export default function LiveChat() {
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'chatSessions');
+    } finally {
+      setIsStartingChat(false);
     }
   };
 
@@ -138,19 +172,17 @@ export default function LiveChat() {
             hasUnreadMessages: true
           });
           
-          // If status was not active, send a notification immediately
-          if (currentStatus !== 'active' && currentStatus !== 'ongoing') {
-            fetch('/api/notify-admin', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                name: visitorName,
-                email: visitorEmail,
-                message: text,
-                type: 'new'
-              })
-            }).catch(e => console.error('Failed to send notification', e));
-          }
+          // Always send a notification immediately when a new message is received
+          fetch('/api/notify-admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: visitorName,
+              email: visitorEmail,
+              message: text,
+              type: 'new'
+            })
+          }).catch(e => console.error('Failed to send notification', e));
           
           // Check if unanswered after 60 seconds
           setTimeout(async () => {
@@ -321,9 +353,19 @@ export default function LiveChat() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="submit" 
-                    className="w-full bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] hover:from-[var(--color-accent-gold-light)] hover:to-[var(--color-accent-gold)] text-[var(--color-bg-dark)] font-bold py-3 rounded-lg transition-all mt-2 shadow-[0_0_15px_rgba(212,175,55,0.3)] hover:shadow-[0_0_25px_rgba(212,175,55,0.5)] relative overflow-hidden group"
+                    disabled={isStartingChat}
+                    className="w-full bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] hover:from-[var(--color-accent-gold-light)] hover:to-[var(--color-accent-gold)] text-[var(--color-bg-dark)] font-bold py-3 rounded-lg transition-all mt-2 shadow-[0_0_15px_rgba(212,175,55,0.3)] hover:shadow-[0_0_25px_rgba(212,175,55,0.5)] relative overflow-hidden group disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    <span className="relative z-10">Start Chat</span>
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                      {isStartingChat ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        'Start Chat'
+                      )}
+                    </span>
                     <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
                   </motion.button>
                 </form>
@@ -333,7 +375,37 @@ export default function LiveChat() {
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="flex flex-col h-full bg-[var(--color-bg-dark)]/30 backdrop-blur-sm"
               >
-                <div className="flex-1 p-4 overflow-y-auto space-y-4 custom-scrollbar">
+                <div className="flex-1 p-4 overflow-y-auto space-y-4 custom-scrollbar relative">
+                  {phoneRequested && !visitorPhone && (
+                    <div className="absolute inset-0 z-20 bg-[var(--color-bg-dark)]/90 backdrop-blur-md flex flex-col items-center justify-center p-6">
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                        className="glass-panel p-6 rounded-2xl w-full max-w-sm text-center border border-[var(--color-accent-gold)]/30 shadow-[0_0_20px_rgba(212,175,55,0.2)]"
+                      >
+                        <div className="w-12 h-12 bg-[var(--color-accent-gold)]/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-[var(--color-accent-gold)]/50">
+                          <Phone className="w-6 h-6 text-[var(--color-accent-gold)]" />
+                        </div>
+                        <h3 className="text-white font-bold text-lg mb-2">Phone Number Required</h3>
+                        <p className="text-gray-400 text-sm mb-6">Our agent has requested your phone number to continue providing support.</p>
+                        <form onSubmit={submitPhone} className="flex flex-col gap-3">
+                          <input 
+                            type="tel" 
+                            required 
+                            placeholder="Enter your phone number"
+                            className="w-full glass-input rounded-lg p-3 text-white outline-none text-center placeholder-gray-500"
+                            value={tempPhone}
+                            onChange={(e) => setTempPhone(e.target.value)}
+                          />
+                          <button 
+                            type="submit"
+                            className="w-full bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] text-[var(--color-bg-dark)] font-bold py-3 rounded-lg hover:scale-105 transition-transform shadow-[0_0_15px_rgba(212,175,55,0.3)]"
+                          >
+                            Submit & Continue
+                          </button>
+                        </form>
+                      </motion.div>
+                    </div>
+                  )}
                   {messages.length === 0 && (
                     <div className="text-center text-gray-500 text-sm mt-4">
                       Send a message to start the conversation.
@@ -380,10 +452,11 @@ export default function LiveChat() {
                     <input 
                       type="text" 
                       id="chatInput" 
-                      className="w-full glass-input rounded-full py-3 pl-4 pr-12 text-white text-sm outline-none transition-all placeholder-gray-500" 
-                      placeholder="Type your message..."
+                      disabled={phoneRequested && !visitorPhone}
+                      className="w-full glass-input rounded-full py-3 pl-4 pr-12 text-white text-sm outline-none transition-all placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed" 
+                      placeholder={phoneRequested && !visitorPhone ? "Please provide phone number..." : "Type your message..."}
                       onKeyDown={e => { 
-                        if(e.key === 'Enter' && e.currentTarget.value.trim()) { 
+                        if(e.key === 'Enter' && e.currentTarget.value.trim() && !(phoneRequested && !visitorPhone)) { 
                           sendMessage(e.currentTarget.value); 
                           e.currentTarget.value = ''; 
                         } 
@@ -392,12 +465,13 @@ export default function LiveChat() {
                     <button 
                       onClick={() => {
                         const input = document.getElementById('chatInput') as HTMLInputElement;
-                        if(input.value.trim()) { 
+                        if(input && input.value.trim() && !(phoneRequested && !visitorPhone)) { 
                           sendMessage(input.value); 
                           input.value = ''; 
                         }
                       }}
-                      className="absolute right-2 bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] p-2 rounded-full text-[var(--color-bg-dark)] hover:scale-105 transition-transform shadow-[0_0_10px_rgba(212,175,55,0.3)]"
+                      disabled={phoneRequested && !visitorPhone}
+                      className="absolute right-2 bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] p-2 rounded-full text-[var(--color-bg-dark)] hover:scale-105 transition-transform shadow-[0_0_10px_rgba(212,175,55,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Send className="w-4 h-4" />
                     </button>

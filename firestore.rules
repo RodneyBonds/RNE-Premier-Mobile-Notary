@@ -20,12 +20,14 @@ service cloud.firestore {
     match /chatSessions/{sessionId} {
       allow read: if isAdmin() || true; // Allow visitor to read their own session
       allow create: if true; // Visitors can start a chat
-      allow update: if isAdmin();
+      allow update: if isAdmin() || true; // Allow visitors to update their session status
+      allow delete: if isAdmin();
     }
 
     match /chatSessions/{sessionId}/messages/{messageId} {
       allow read: if isAdmin() || true; // Allow visitor to read their own messages
       allow create: if true; // Visitors can send messages
+      allow delete: if isAdmin();
     }
   }
 }

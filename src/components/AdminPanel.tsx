@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, auth } from '../lib/firebase';
-import { collection, doc, setDoc, onSnapshot, query, orderBy, addDoc, serverTimestamp, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, query, orderBy, addDoc, serverTimestamp, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { handleFirestoreError, OperationType } from '../lib/firebase';
 import { MessageCircle, Power, Send, User, Clock, CheckCircle2, Trash2, Mail, Settings, Shield } from 'lucide-react';
@@ -142,7 +142,15 @@ export default function AdminPanel() {
       message: 'Are you sure you want to permanently delete this session and all its messages?',
       onConfirm: async () => {
         try {
+          // Delete all messages in the subcollection first
+          const messagesRef = collection(db, 'chatSessions', sessionId, 'messages');
+          const messagesSnapshot = await getDocs(messagesRef);
+          const deletePromises = messagesSnapshot.docs.map(doc => deleteDoc(doc.ref));
+          await Promise.all(deletePromises);
+
+          // Then delete the session document
           await deleteDoc(doc(db, 'chatSessions', sessionId));
+          
           if (selectedSession?.id === sessionId) {
             setSelectedSession(null);
           }

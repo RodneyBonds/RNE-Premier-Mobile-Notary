@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data, error } = await resend.emails.send({
       from: `${name} <${fromEmail}>`,
-      to: ['rodney@rnepremiermobilenotary.com'],
+      to: ['rodneyrnepremiermobilenotary@gmail.com'],
       replyTo: email,
       subject: `New Contact Form: ${name}`,
       html: `
@@ -44,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { error: autoResponseError } = await resend.emails.send({
       from: `RNE Premier Mobile Notary Support <${fromEmail}>`,
       to: [email],
-      replyTo: 'rodney@rnepremiermobilenotary.com',
+      replyTo: 'rodneyrnepremiermobilenotary@gmail.com',
       subject: `We've received your message - RNE Premier Mobile Notary`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.6;">

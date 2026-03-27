@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (fromEmail === 'onboarding@resend.dev') {
       fromEmail = 'rodney@rnepremiermobilenotary.com';
     }
-    const adminEmail = 'rodney@rnepremiermobilenotary.com';
+    const adminEmail = 'rodneyrnepremiermobilenotary@gmail.com';
 
     // Format the chat transcript
     const transcriptHtml = messages.map((msg: any) => {

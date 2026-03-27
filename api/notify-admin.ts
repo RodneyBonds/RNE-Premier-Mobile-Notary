@@ -15,7 +15,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'rodney@rnepremiermobilenotary.com';
+    let fromEmail = process.env.RESEND_FROM_EMAIL || 'rodney@rnepremiermobilenotary.com';
+    if (fromEmail === 'onboarding@resend.dev') {
+      fromEmail = 'rodney@rnepremiermobilenotary.com';
+    }
     const adminEmail = 'rodney@rnepremiermobilenotary.com';
 
     let subject = `New Message from ${name}`;

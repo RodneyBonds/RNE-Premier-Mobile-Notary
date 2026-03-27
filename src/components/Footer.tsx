@@ -88,9 +88,16 @@ export default function Footer() {
                   <span>rodney@rnepremiermobilenotary.com</span>
                 </a>
               </li>
-              <li className="flex items-start gap-3 text-sm">
-                <MapPin className="w-4 h-4 text-accent-gold-dark shrink-0 mt-0.5" />
-                <span>Scottsdale, AZ<br/>Serving Maricopa County</span>
+              <li className="text-sm">
+                <a 
+                  href="https://maps.app.goo.gl/GSgdD6HRotKMJr269" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="hover:text-white transition-colors flex items-start gap-3"
+                >
+                  <MapPin className="w-4 h-4 text-accent-gold-dark shrink-0 mt-0.5" />
+                  <span>Scottsdale, AZ<br/>Serving Maricopa County</span>
+                </a>
               </li>
               <li className="flex items-start gap-3 text-sm">
                 <Clock className="w-4 h-4 text-accent-gold shrink-0 mt-0.5" />

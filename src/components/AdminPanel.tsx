@@ -408,7 +408,7 @@ export default function AdminPanel() {
             <div className="w-10 h-10 bg-gradient-to-br from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(212,175,55,0.3)]">
               <Shield className="w-6 h-6 text-[var(--color-bg-dark)]" />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Command Center</h1>
+            <h1 className="text-2xl font-bold text-white tracking-tight">RNE Premier Mobile Notary Support</h1>
           </div>
           
           <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-6">

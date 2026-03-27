@@ -10,6 +10,7 @@ export default function AdminPanel() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdminOnline, setIsAdminOnline] = useState(false);
   const [sessions, setSessions] = useState([]);
+  const [inquiries, setInquiries] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [reply, setReply] = useState('');
@@ -19,8 +20,25 @@ export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('Active'); // 'Active', 'Ongoing', 'Done', 'Cancelled', 'Spam'
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
   const [pinnedNotes, setPinnedNotes] = useState('');
+  const [isPinnedOpen, setIsPinnedOpen] = useState(true);
   const messagesEndRef = useRef(null);
   const TABS = ['Active', 'Ongoing', 'Done', 'Cancelled', 'Spam'];
+
+  const updateStatus = async (id: string, status: string) => {
+    try {
+      await updateDoc(doc(db, 'inquiries', id), { status });
+    } catch (error) {
+      console.error('Error updating status:', error);
+    }
+  };
+
+  const updateNotes = async (id: string, notes: string) => {
+    try {
+      await updateDoc(doc(db, 'inquiries', id), { notes });
+    } catch (error) {
+      console.error('Error updating notes:', error);
+    }
+  };
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -35,7 +53,13 @@ export default function AdminPanel() {
       setSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    return () => { unsubAdmin(); unsubSessions(); };
+    const inquiriesRef = collection(db, 'inquiries');
+    const qInquiries = query(inquiriesRef, orderBy('createdAt', 'desc'));
+    const unsubInquiries = onSnapshot(qInquiries, (snapshot) => {
+      setInquiries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    
+    return () => { unsubAdmin(); unsubSessions(); unsubInquiries(); };
   }, [isLoggedIn]);
 
   useEffect(() => {
@@ -447,13 +471,72 @@ export default function AdminPanel() {
         </div>
       </motion.header>
       
-      <main className="max-w-7xl mx-auto p-4 sm:p-6 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-auto lg:h-[calc(100vh-140px)]">
+      <main className="max-w-[95%] mx-auto p-4 sm:p-6 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-8 gap-6 h-auto lg:h-[calc(100vh-140px)]">
           
+          {/* Inquiries Sidebar */}
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
+            className="lg:col-span-2 h-[400px] lg:h-full glass-panel rounded-2xl flex flex-col overflow-hidden"
+          >
+            <div className="p-4 border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/20">
+              <h2 className="font-bold text-white flex items-center gap-2">
+                <Shield className="w-4 h-4 text-[var(--color-accent-gold)]" />
+                Inquiries
+              </h2>
+            </div>
+            <div className="overflow-y-auto flex-1 p-3 space-y-2 custom-scrollbar">
+              <AnimatePresence>
+                {inquiries.map((inquiry: any) => {
+                  const statusColors: Record<string, string> = {
+                    'Started': 'bg-orange-500/10 border-orange-500/50',
+                    'Ongoing': 'bg-yellow-500/10 border-yellow-500/50',
+                    'Done': 'bg-green-500/10 border-green-500/50',
+                    'Cancelled': 'bg-red-500/10 border-red-500/50'
+                  };
+                  const colorClasses = statusColors[inquiry.status] || 'bg-gray-500/10 border-gray-500/50';
+                  return (
+                    <motion.div 
+                      layout
+                      key={inquiry.id}
+                      className={`w-full text-left p-4 rounded-xl border-l-4 ${colorClasses}`}
+                    >
+                      <div className="font-bold text-white truncate">{inquiry.name}</div>
+                      <div className="text-xs text-gray-400 truncate">{inquiry.email}</div>
+                      <select
+                        value={inquiry.status}
+                        onChange={(e) => updateStatus(inquiry.id, e.target.value)}
+                        className="mt-2 w-full bg-[var(--color-bg-dark)] text-white text-[10px] p-1 rounded border border-white/10 cursor-pointer hover:border-white/30 transition-colors"
+                      >
+                        <option value="Started">Started</option>
+                        <option value="Ongoing">Ongoing</option>
+                        <option value="Done">Done</option>
+                        <option value="Cancelled">Cancelled</option>
+                      </select>
+                      <div className="mt-3">
+                        <div className="text-[9px] uppercase tracking-wider text-gray-500 mb-1 font-semibold flex items-center gap-1">
+                          <Pin className="w-2 h-2" />
+                          Notes:
+                        </div>
+                        <textarea
+                          value={inquiry.notes || ''}
+                          onChange={(e) => updateNotes(inquiry.id, e.target.value)}
+                          placeholder="Add client notes..."
+                          className="w-full bg-[var(--color-bg-dark)] text-white text-[10px] p-2 rounded border border-white/10 hover:border-white/30 transition-colors resize-none custom-scrollbar focus:outline-none focus:border-[var(--color-accent-gold)]/50"
+                          rows={2}
+                        />
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+
           {/* Sessions List */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}
-            className="lg:col-span-1 h-[400px] lg:h-full glass-panel rounded-2xl flex flex-col overflow-hidden"
+            className="lg:col-span-2 h-[400px] lg:h-full glass-panel rounded-2xl flex flex-col overflow-hidden"
           >
             <div className="p-4 border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/20 flex justify-between items-center">
               <h2 className="font-bold text-white flex items-center gap-2">
@@ -545,7 +628,7 @@ export default function AdminPanel() {
           {/* Chat Area */}
           <motion.div 
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
-            className="lg:col-span-2 h-[500px] lg:h-full glass-panel rounded-2xl flex flex-col overflow-hidden relative"
+            className="lg:col-span-3 h-[500px] lg:h-full glass-panel rounded-2xl flex flex-col overflow-hidden relative"
           >
             {selectedSession ? (
               <>
@@ -690,41 +773,47 @@ export default function AdminPanel() {
           {/* Pinned Info Area */}
           <motion.div 
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
-            className="lg:col-span-1 h-[300px] lg:h-full glass-panel rounded-2xl flex flex-col overflow-hidden"
+            className={`lg:col-span-1 h-auto lg:h-full glass-panel rounded-2xl flex flex-col overflow-hidden transition-all duration-300 ${!selectedSession ? 'hidden' : ''} ${isPinnedOpen ? 'w-full' : 'w-16 items-center'}`}
           >
-            <div className="p-4 border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/20 flex justify-between items-center">
-              <h2 className="font-bold text-white flex items-center gap-2">
-                <Pin className="w-4 h-4 text-[var(--color-accent-gold)]" />
-                Pinned Info
-              </h2>
-            </div>
-            <div className="flex-1 p-4 flex flex-col bg-[var(--color-bg-dark)]/20">
-              {selectedSession ? (
-                <>
-                  <p className="text-xs text-gray-400 mb-2">Save important details like address, phone, or specific requests here. Only visible to admins.</p>
-                  <textarea
-                    value={pinnedNotes}
-                    onChange={(e) => setPinnedNotes(e.target.value)}
-                    onBlur={saveNotes}
-                    placeholder="Add notes here..."
-                    className="flex-1 w-full glass-input rounded-xl p-3 text-white text-sm outline-none transition-all placeholder-gray-500 resize-none custom-scrollbar"
-                  />
-                  <div className="mt-3 flex justify-end">
-                    <button 
-                      onClick={saveNotes}
-                      className="bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] text-[var(--color-bg-dark)] font-bold py-1.5 px-4 rounded-lg text-sm hover:scale-105 transition-transform shadow-[0_0_10px_rgba(212,175,55,0.3)]"
-                    >
-                      Save Notes
-                    </button>
-                  </div>
-                </>
+            <div className={`p-4 border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/20 flex justify-between items-center cursor-pointer w-full ${!isPinnedOpen ? 'justify-center' : ''}`} onClick={() => setIsPinnedOpen(!isPinnedOpen)}>
+              {isPinnedOpen ? (
+                <h2 className="font-bold text-white flex items-center gap-2">
+                  <Pin className="w-4 h-4 text-[var(--color-accent-gold)]" />
+                  Pinned Info
+                </h2>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-gray-500 text-sm text-center">
-                  <Pin className="w-8 h-8 text-gray-600 mb-2 opacity-50" />
-                  <p>Select a session to view or add pinned notes.</p>
-                </div>
+                <Pin className="w-6 h-6 text-[var(--color-accent-gold)]" />
               )}
             </div>
+            {isPinnedOpen && (
+              <div className="flex-1 p-4 flex flex-col bg-[var(--color-bg-dark)]/20 w-full">
+                {selectedSession ? (
+                  <>
+                    <p className="text-xs text-gray-400 mb-2">Save important details like address, phone, or specific requests here. Only visible to admins.</p>
+                    <textarea
+                      value={pinnedNotes}
+                      onChange={(e) => setPinnedNotes(e.target.value)}
+                      onBlur={saveNotes}
+                      placeholder="Add notes here..."
+                      className="flex-1 w-full glass-input rounded-xl p-3 text-white text-sm outline-none transition-all placeholder-gray-500 resize-none custom-scrollbar"
+                    />
+                    <div className="mt-3 flex justify-end">
+                      <button 
+                        onClick={saveNotes}
+                        className="bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] text-[var(--color-bg-dark)] font-bold py-1.5 px-4 rounded-lg text-sm hover:scale-105 transition-transform shadow-[0_0_10px_rgba(212,175,55,0.3)]"
+                      >
+                        Save Notes
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-gray-500 text-sm text-center">
+                    <Pin className="w-8 h-8 text-gray-600 mb-2 opacity-50" />
+                    <p>Select a session to view or add pinned notes.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </motion.div>
         </div>
       </main>
@@ -754,14 +843,14 @@ export default function AdminPanel() {
       {/* Inquiries Modal */}
       <AnimatePresence>
         {showInquiriesModal && (
-          <InquiriesModal onClose={() => setShowInquiriesModal(false)} />
+          <InquiriesModal onClose={() => setShowInquiriesModal(false)} updateStatus={updateStatus} updateNotes={updateNotes} />
         )}
       </AnimatePresence>
     </div>
   );
 }
 
-function InquiriesModal({ onClose }: { onClose: () => void }) {
+function InquiriesModal({ onClose, updateStatus, updateNotes }: { onClose: () => void, updateStatus: (id: string, status: string) => Promise<void>, updateNotes: (id: string, notes: string) => Promise<void> }) {
   const [inquiries, setInquiries] = useState([]);
 
   useEffect(() => {
@@ -772,14 +861,6 @@ function InquiriesModal({ onClose }: { onClose: () => void }) {
     });
     return () => unsub();
   }, []);
-
-  const updateStatus = async (id: string, status: string) => {
-    try {
-      await updateDoc(doc(db, 'inquiries', id), { status });
-    } catch (error) {
-      console.error('Error updating status:', error);
-    }
-  };
 
   return (
     <motion.div 
@@ -795,27 +876,56 @@ function InquiriesModal({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-6 h-6" /></button>
         </div>
         <div className="overflow-y-auto custom-scrollbar flex-1 space-y-4">
-          {inquiries.map((inquiry: any) => (
-            <div key={inquiry.id} className="bg-[var(--color-bg-dark)]/50 p-4 rounded-xl border border-white/10">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h4 className="font-bold text-white">{inquiry.name}</h4>
-                  <p className="text-sm text-gray-400">{inquiry.email} • {inquiry.phone}</p>
+          {inquiries.map((inquiry: any) => {
+            const statusColors: Record<string, string> = {
+              'Started': 'border-orange-500/50',
+              'Ongoing': 'border-yellow-500/50',
+              'Done': 'border-green-500/50',
+              'Cancelled': 'border-red-500/50'
+            };
+            const borderColor = statusColors[inquiry.status] || 'border-white/10';
+            return (
+              <div key={inquiry.id} className={`bg-[var(--color-bg-dark)]/50 p-4 rounded-xl border-l-4 ${borderColor}`}>
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-white">{inquiry.name}</h4>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                      inquiry.status === 'Started' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                      inquiry.status === 'Ongoing' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
+                      inquiry.status === 'Done' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+                      'bg-red-500/10 text-red-400 border-red-500/20'
+                    }`}>
+                      {inquiry.status}
+                    </span>
+                  </div>
+                  <select
+                    value={inquiry.status}
+                    onChange={(e) => updateStatus(inquiry.id, e.target.value)}
+                    className="bg-[var(--color-bg-dark)] text-white text-xs p-2 rounded-lg border border-white/10 cursor-pointer hover:border-white/30 transition-colors"
+                  >
+                    <option value="Started">Started</option>
+                    <option value="Ongoing">Ongoing</option>
+                    <option value="Done">Done</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
                 </div>
-                <select
-                  value={inquiry.status}
-                  onChange={(e) => updateStatus(inquiry.id, e.target.value)}
-                  className="bg-[var(--color-bg-dark)] text-white text-xs p-2 rounded-lg border border-white/10"
-                >
-                  <option value="Started">Started</option>
-                  <option value="Ongoing">Ongoing</option>
-                  <option value="Done">Done</option>
-                  <option value="Cancelled">Cancelled</option>
-                </select>
+                <p className="mt-2 text-sm text-gray-300">{inquiry.message}</p>
+                <div className="mt-4">
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold flex items-center gap-1">
+                    <Pin className="w-2 h-2" />
+                    Admin Notes:
+                  </div>
+                  <textarea
+                    value={inquiry.notes || ''}
+                    onChange={(e) => updateNotes(inquiry.id, e.target.value)}
+                    placeholder="Add a short note about this client..."
+                    className="w-full bg-[var(--color-bg-dark)]/50 text-white text-xs p-3 rounded-lg border border-white/10 hover:border-white/30 transition-colors resize-none focus:outline-none focus:border-[var(--color-accent-gold)]/50"
+                    rows={2}
+                  />
+                </div>
               </div>
-              <p className="mt-2 text-sm text-gray-300">{inquiry.message}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </motion.div>
     </motion.div>

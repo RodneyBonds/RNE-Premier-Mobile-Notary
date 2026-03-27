@@ -36,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       from: `${name} <${fromEmail}>`,
       to: [adminEmail],
       replyTo: email,
-      subject: `Chat Transcript: ${name}`,
+      subject: `Chat Transcript: ${name} - RNE Premier Mobile Notary`,
       html: `
         <h2>Chat Transcript with ${name}</h2>
         <p><strong>Email:</strong> ${email}</p>
@@ -60,7 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       from: `RNE Premier Mobile Notary Support <${fromEmail}>`,
       to: [email],
       replyTo: adminEmail,
-      subject: `Your Chat Transcript with Support`,
+      subject: `Chat Transcript: ${name} - RNE Premier Mobile Notary`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.6;">
           <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #D4AF37;">

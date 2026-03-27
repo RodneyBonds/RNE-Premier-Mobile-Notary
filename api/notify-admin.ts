@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     const adminEmail = 'rodneyrnepremiermobilenotary@gmail.com';
 
-    let subject = `New Message from ${name}`;
+    let subject = `Contact from ${name} - RNE Premier Mobile Notary`;
     let html = `
       <h2>New Message in Live Chat</h2>
       <p><strong>Visitor:</strong> ${name} (${email})</p>
@@ -31,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     `;
 
     if (type === 'unanswered') {
-      subject = `Unanswered Message from ${name}`;
+      subject = `Unanswered Contact from ${name} - RNE Premier Mobile Notary`;
       html = `
         <h2>Unanswered Message in Live Chat</h2>
         <p><strong>Visitor:</strong> ${name} (${email})</p>

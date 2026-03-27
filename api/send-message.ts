@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       from: `${name} <${fromEmail}>`,
       to: ['rodneyrnepremiermobilenotary@gmail.com'],
       replyTo: email,
-      subject: `New Contact Form: ${name}`,
+      subject: `Contact from ${name} - RNE Premier Mobile Notary`,
       html: `
         <h2>New Message from Contact Form</h2>
         <p><strong>Name:</strong> ${name}</p>
@@ -45,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       from: `RNE Premier Mobile Notary Support <${fromEmail}>`,
       to: [email],
       replyTo: 'rodneyrnepremiermobilenotary@gmail.com',
-      subject: `We've received your message - RNE Premier Mobile Notary`,
+      subject: `Contact from ${name} - RNE Premier Mobile Notary`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.6;">
           <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #D4AF37;">

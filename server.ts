@@ -84,7 +84,7 @@ async function startServer() {
 
       const { data, error } = await resend.emails.send({
         from: fromEmail,
-        to: ['rodney@rnepremiermobilenotary.com'],
+        to: ['rodneyrnepremiermobilenotary@gmail.com'],
         replyTo: email,
         subject: `New Contact Form: ${name}`,
         html: `
@@ -105,6 +105,90 @@ async function startServer() {
       res.status(200).json({ success: true, data });
     } catch (error) {
       console.error("Server error sending email:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+
+  // API Route for notifying admin about live chat
+  app.post("/api/notify-admin", async (req, res) => {
+    console.log(`POST /api/notify-admin request received`);
+    const { name, email, message, type } = req.body;
+
+    if (!process.env.RESEND_API_KEY) {
+      console.error("RESEND_API_KEY is missing");
+      return res.status(500).json({ error: "Email service not configured." });
+    }
+
+    try {
+      const fromEmail = process.env.RESEND_FROM_EMAIL || 'rodney@rnepremiermobilenotary.com';
+      const subject = type === 'start' ? `New Live Chat Request from ${name}` : `New Live Chat Message from ${name}`;
+
+      const { data, error } = await resend.emails.send({
+        from: fromEmail,
+        to: ['rodneyrnepremiermobilenotary@gmail.com'],
+        replyTo: email,
+        subject: subject,
+        html: `
+          <h2>${type === 'start' ? 'New Live Chat Request' : 'New Message in Live Chat'}</h2>
+          <p><strong>Visitor:</strong> ${name} (${email})</p>
+          ${message ? `<p><strong>Message:</strong> ${message}</p>` : ''}
+          <p><a href="https://rnepremiermobilenotary.com/admin">Log in to the Admin Panel</a> to reply.</p>
+        `,
+      });
+
+      if (error) {
+        console.error("Resend error details:", JSON.stringify(error, null, 2));
+        return res.status(400).json({ error: (error as any).message || 'Resend validation error' });
+      }
+
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      console.error("Server error sending email:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+
+  // API Route for sending chat transcripts
+  app.post("/api/send-transcript", async (req, res) => {
+    console.log(`POST /api/send-transcript request received`);
+    const { name, email, phone, messages } = req.body;
+
+    if (!process.env.RESEND_API_KEY) {
+      console.error("RESEND_API_KEY is missing");
+      return res.status(500).json({ error: "Email service not configured." });
+    }
+
+    try {
+      const fromEmail = process.env.RESEND_FROM_EMAIL || 'rodney@rnepremiermobilenotary.com';
+
+      const formattedMessages = messages.map((msg: any) => {
+        const time = new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        return `<p><strong>[${time}] ${msg.senderName || (msg.senderId === 'admin' ? 'Support' : name)}:</strong> ${msg.text}</p>`;
+      }).join('');
+
+      const { data, error } = await resend.emails.send({
+        from: fromEmail,
+        to: [email, 'rodneyrnepremiermobilenotary@gmail.com'],
+        subject: `Your Chat Transcript with RNE Premier Mobile Notary`,
+        html: `
+          <h2>Chat Transcript</h2>
+          <p><strong>Visitor:</strong> ${name} (${email})</p>
+          ${phone ? `<p><strong>Phone:</strong> ${phone}</p>` : ''}
+          <hr />
+          <div style="margin-top: 20px;">
+            ${formattedMessages}
+          </div>
+        `,
+      });
+
+      if (error) {
+        console.error("Resend error details:", JSON.stringify(error, null, 2));
+        return res.status(400).json({ error: (error as any).message || 'Resend validation error' });
+      }
+
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      console.error("Server error sending transcript:", error);
       res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
     }
   });

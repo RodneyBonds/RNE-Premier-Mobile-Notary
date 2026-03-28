@@ -147,6 +147,19 @@ export default function LiveChat() {
           timestamp: serverTimestamp()
         });
       }
+
+      // Notify admin about new chat request
+      fetch('/api/notify-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          message: formData.message,
+          type: 'start'
+        })
+      }).catch(e => console.error('Failed to send notification', e));
+
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'chatSessions');
     } finally {
@@ -365,39 +378,39 @@ export default function LiveChat() {
             ) : (
               <motion.div 
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="flex flex-col h-full bg-[var(--color-bg-dark)]/30 backdrop-blur-sm"
+                className="flex flex-col h-full bg-[var(--color-bg-dark)]/30 backdrop-blur-sm relative"
               >
+                {phoneRequested && !visitorPhone && (
+                  <div className="absolute inset-0 z-50 bg-[var(--color-bg-dark)]/95 backdrop-blur-md flex flex-col items-center justify-center p-6 rounded-b-2xl">
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                      className="glass-panel p-6 rounded-2xl w-full max-w-sm text-center border border-[var(--color-accent-gold)]/30 shadow-[0_0_20px_rgba(212,175,55,0.2)]"
+                    >
+                      <div className="w-12 h-12 bg-[var(--color-accent-gold)]/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-[var(--color-accent-gold)]/50">
+                        <Phone className="w-6 h-6 text-[var(--color-accent-gold)]" />
+                      </div>
+                      <h3 className="text-white font-bold text-lg mb-2">Phone Number Required</h3>
+                      <p className="text-gray-400 text-sm mb-6">Our agent has requested your phone number to continue providing support.</p>
+                      <form onSubmit={submitPhone} className="flex flex-col gap-3">
+                        <input 
+                          type="tel" 
+                          required 
+                          placeholder="Enter your phone number"
+                          className="w-full glass-input rounded-lg p-3 text-white outline-none text-center placeholder-gray-500"
+                          value={tempPhone}
+                          onChange={(e) => setTempPhone(e.target.value)}
+                        />
+                        <button 
+                          type="submit"
+                          className="w-full bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] text-[var(--color-bg-dark)] font-bold py-3 rounded-lg hover:scale-105 transition-transform shadow-[0_0_15px_rgba(212,175,55,0.3)]"
+                        >
+                          Submit & Continue
+                        </button>
+                      </form>
+                    </motion.div>
+                  </div>
+                )}
                 <div className="flex-1 p-4 overflow-y-auto space-y-4 custom-scrollbar relative">
-                  {phoneRequested && !visitorPhone && (
-                    <div className="absolute inset-0 z-20 bg-[var(--color-bg-dark)]/90 backdrop-blur-md flex flex-col items-center justify-center p-6">
-                      <motion.div 
-                        initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                        className="glass-panel p-6 rounded-2xl w-full max-w-sm text-center border border-[var(--color-accent-gold)]/30 shadow-[0_0_20px_rgba(212,175,55,0.2)]"
-                      >
-                        <div className="w-12 h-12 bg-[var(--color-accent-gold)]/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-[var(--color-accent-gold)]/50">
-                          <Phone className="w-6 h-6 text-[var(--color-accent-gold)]" />
-                        </div>
-                        <h3 className="text-white font-bold text-lg mb-2">Phone Number Required</h3>
-                        <p className="text-gray-400 text-sm mb-6">Our agent has requested your phone number to continue providing support.</p>
-                        <form onSubmit={submitPhone} className="flex flex-col gap-3">
-                          <input 
-                            type="tel" 
-                            required 
-                            placeholder="Enter your phone number"
-                            className="w-full glass-input rounded-lg p-3 text-white outline-none text-center placeholder-gray-500"
-                            value={tempPhone}
-                            onChange={(e) => setTempPhone(e.target.value)}
-                          />
-                          <button 
-                            type="submit"
-                            className="w-full bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] text-[var(--color-bg-dark)] font-bold py-3 rounded-lg hover:scale-105 transition-transform shadow-[0_0_15px_rgba(212,175,55,0.3)]"
-                          >
-                            Submit & Continue
-                          </button>
-                        </form>
-                      </motion.div>
-                    </div>
-                  )}
                   {messages.length === 0 && (
                     <div className="text-center text-gray-500 text-sm mt-4">
                       Send a message to start the conversation.

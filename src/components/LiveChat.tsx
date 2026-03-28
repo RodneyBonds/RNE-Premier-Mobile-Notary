@@ -7,8 +7,7 @@ import { useChat } from '../context/ChatContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function LiveChat() {
-  const { isOpen, setIsOpen, formData: contextFormData } = useChat();
-  const [isAdminOnline, setIsAdminOnline] = useState(false);
+  const { isOpen, setIsOpen, formData: contextFormData, isAdminOnline } = useChat();
   const [messages, setMessages] = useState([]);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '' });
   const [chatStarted, setChatStarted] = useState(false);
@@ -19,7 +18,9 @@ export default function LiveChat() {
   const [visitorPhone, setVisitorPhone] = useState('');
   const [tempPhone, setTempPhone] = useState('');
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const [adminTyping, setAdminTyping] = useState(false);
   const messagesEndRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   useEffect(() => {
     const savedSessionId = localStorage.getItem('chatSessionId');
@@ -40,17 +41,6 @@ export default function LiveChat() {
   useEffect(() => {
     if (contextFormData.name) setFormData(contextFormData);
   }, [contextFormData]);
-
-  useEffect(() => {
-    // Check admin status
-    const adminRef = doc(db, 'adminStatus', 'global');
-    const unsubAdmin = onSnapshot(adminRef, (doc) => {
-      if (doc.exists()) {
-        setIsAdminOnline(doc.data().isOnline);
-      }
-    });
-    return () => unsubAdmin();
-  }, []);
 
   const resetChat = () => {
     setSessionId(null);
@@ -75,6 +65,7 @@ export default function LiveChat() {
             setPhoneRequested(data.phoneRequested || false);
             setVisitorPhone(data.phone || '');
             setHasUnreadMessages(data.hasUnreadMessages || false);
+            setAdminTyping(data.adminTyping || false);
           }
         }
       });
@@ -95,7 +86,20 @@ export default function LiveChat() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, adminTyping]);
+
+  const handleTyping = async () => {
+    if (!sessionId) return;
+    try {
+      await updateDoc(doc(db, 'chatSessions', sessionId), { visitorTyping: true });
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(async () => {
+        await updateDoc(doc(db, 'chatSessions', sessionId), { visitorTyping: false });
+      }, 2000);
+    } catch (e) {
+      console.error('Error updating typing status', e);
+    }
+  };
 
   const submitPhone = async (e) => {
     e.preventDefault();
@@ -431,6 +435,22 @@ export default function LiveChat() {
                       </motion.div>
                     ))}
                   </AnimatePresence>
+                  
+                  {adminTyping && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className="flex justify-start"
+                    >
+                      <div className="bg-[var(--color-accent-navy-light)]/80 text-white border border-[var(--color-accent-gold)]/20 rounded-2xl rounded-tl-sm p-3 shadow-md backdrop-blur-md flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 bg-[var(--color-accent-gold)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-1.5 h-1.5 bg-[var(--color-accent-gold)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-1.5 h-1.5 bg-[var(--color-accent-gold)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      </div>
+                    </motion.div>
+                  )}
+                  
                   <div ref={messagesEndRef} />
                 </div>
                 <div className="p-4 bg-[var(--color-bg-card)]/80 backdrop-blur-md border-t border-[var(--color-accent-gold)]/20">
@@ -441,6 +461,7 @@ export default function LiveChat() {
                       disabled={phoneRequested && !visitorPhone}
                       className="w-full glass-input rounded-full py-3 pl-4 pr-12 text-white text-sm outline-none transition-all placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed" 
                       placeholder={phoneRequested && !visitorPhone ? "Please provide phone number..." : "Type your message..."}
+                      onChange={handleTyping}
                       onKeyDown={e => { 
                         if(e.key === 'Enter' && e.currentTarget.value.trim() && !(phoneRequested && !visitorPhone)) { 
                           sendMessage(e.currentTarget.value); 

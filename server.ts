@@ -4,15 +4,22 @@ import path from "path";
 import dotenv from "dotenv";
 import cors from "cors";
 import { Resend } from "resend";
-import admin from "firebase-admin";
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, query, where, getDocs, updateDoc, doc, serverTimestamp } from "firebase/firestore";
+import fs from "fs";
 
 dotenv.config();
 
-// Initialize Firebase Admin
-admin.initializeApp({
-  credential: admin.credential.applicationDefault(),
-});
-const db = admin.firestore();
+// Read firebase config
+const firebaseConfigPath = path.join(process.cwd(), 'firebase-applet-config.json');
+let firebaseConfig: any = {};
+if (fs.existsSync(firebaseConfigPath)) {
+  firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, 'utf-8'));
+}
+
+// Initialize Firebase Client
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -20,15 +27,15 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Hourly notification check
 setInterval(async () => {
   try {
-    const sessions = await db.collection('chatSessions')
-      .where('status', '==', 'active')
-      .where('hasUnreadMessages', '==', true)
-      .get();
+    const sessionsRef = collection(db, 'chatSessions');
+    const q = query(sessionsRef, where('status', '==', 'active'), where('hasUnreadMessages', '==', true));
+    const sessions = await getDocs(q);
     
     const now = Date.now();
-    for (const doc of sessions.docs) {
-      const data = doc.data();
-      const lastNotificationAt = data.lastNotificationAt?.toMillis() || 0;
+    for (const sessionDoc of sessions.docs) {
+      const data = sessionDoc.data();
+      // Handle Timestamp from client SDK
+      const lastNotificationAt = data.lastNotificationAt?.toMillis ? data.lastNotificationAt.toMillis() : 0;
       if (now - lastNotificationAt >= 3600000) { // 1 hour
         const fromEmail = process.env.RESEND_FROM_EMAIL || 'rodney@rnepremiermobilenotary.com';
         
@@ -43,7 +50,9 @@ setInterval(async () => {
           `,
         });
         
-        await doc.ref.update({ lastNotificationAt: admin.firestore.FieldValue.serverTimestamp() });
+        await updateDoc(doc(db, 'chatSessions', sessionDoc.id), { 
+          lastNotificationAt: serverTimestamp() 
+        });
       }
     }
   } catch (error) {

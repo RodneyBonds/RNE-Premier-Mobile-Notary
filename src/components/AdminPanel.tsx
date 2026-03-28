@@ -22,7 +22,21 @@ export default function AdminPanel() {
   const [pinnedNotes, setPinnedNotes] = useState('');
   const [isPinnedOpen, setIsPinnedOpen] = useState(true);
   const messagesEndRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
   const TABS = ['Active', 'Ongoing', 'Done', 'Cancelled', 'Spam'];
+
+  const handleTyping = async () => {
+    if (!selectedSession) return;
+    try {
+      await updateDoc(doc(db, 'chatSessions', selectedSession.id), { adminTyping: true });
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(async () => {
+        await updateDoc(doc(db, 'chatSessions', selectedSession.id), { adminTyping: false });
+      }, 2000);
+    } catch (e) {
+      console.error('Error updating typing status', e);
+    }
+  };
 
   const updateStatus = async (id: string, status: string) => {
     try {
@@ -122,10 +136,9 @@ export default function AdminPanel() {
       
       // Add system message about status change
       let statusMessage = '';
-      if (newStatus === 'ongoing') statusMessage = 'Conversation marked as ongoing.';
-      if (newStatus === 'done') statusMessage = 'Conversation marked as done.';
-      if (newStatus === 'cancelled') statusMessage = 'Conversation cancelled.';
-      if (newStatus === 'spam') statusMessage = 'Conversation marked as spam.';
+      if (newStatus === 'done') statusMessage = "Session status changed to 'Done'.";
+      else if (newStatus === 'cancelled') statusMessage = "Session status changed to 'Cancelled'.";
+      else if (newStatus === 'spam') statusMessage = "Session status changed to 'Spam'.";
 
       if (statusMessage) {
         await addDoc(collection(db, 'chatSessions', sessionId, 'messages'), {
@@ -472,71 +485,12 @@ export default function AdminPanel() {
       </motion.header>
       
       <main className="max-w-[95%] mx-auto p-4 sm:p-6 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-8 gap-6 h-auto lg:h-[calc(100vh-140px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto lg:h-[calc(100vh-140px)]">
           
-          {/* Inquiries Sidebar */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
-            className="lg:col-span-2 h-[400px] lg:h-full glass-panel rounded-2xl flex flex-col overflow-hidden"
-          >
-            <div className="p-4 border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/20">
-              <h2 className="font-bold text-white flex items-center gap-2">
-                <Shield className="w-4 h-4 text-[var(--color-accent-gold)]" />
-                Inquiries
-              </h2>
-            </div>
-            <div className="overflow-y-auto flex-1 p-3 space-y-2 custom-scrollbar">
-              <AnimatePresence>
-                {inquiries.map((inquiry: any) => {
-                  const statusColors: Record<string, string> = {
-                    'Started': 'bg-orange-500/10 border-orange-500/50',
-                    'Ongoing': 'bg-yellow-500/10 border-yellow-500/50',
-                    'Done': 'bg-green-500/10 border-green-500/50',
-                    'Cancelled': 'bg-red-500/10 border-red-500/50'
-                  };
-                  const colorClasses = statusColors[inquiry.status] || 'bg-gray-500/10 border-gray-500/50';
-                  return (
-                    <motion.div 
-                      layout
-                      key={inquiry.id}
-                      className={`w-full text-left p-4 rounded-xl border-l-4 ${colorClasses}`}
-                    >
-                      <div className="font-bold text-white truncate">{inquiry.name}</div>
-                      <div className="text-xs text-gray-400 truncate">{inquiry.email}</div>
-                      <select
-                        value={inquiry.status}
-                        onChange={(e) => updateStatus(inquiry.id, e.target.value)}
-                        className="mt-2 w-full bg-[var(--color-bg-dark)] text-white text-[10px] p-1 rounded border border-white/10 cursor-pointer hover:border-white/30 transition-colors"
-                      >
-                        <option value="Started">Started</option>
-                        <option value="Ongoing">Ongoing</option>
-                        <option value="Done">Done</option>
-                        <option value="Cancelled">Cancelled</option>
-                      </select>
-                      <div className="mt-3">
-                        <div className="text-[9px] uppercase tracking-wider text-gray-500 mb-1 font-semibold flex items-center gap-1">
-                          <Pin className="w-2 h-2" />
-                          Notes:
-                        </div>
-                        <textarea
-                          value={inquiry.notes || ''}
-                          onChange={(e) => updateNotes(inquiry.id, e.target.value)}
-                          placeholder="Add client notes..."
-                          className="w-full bg-[var(--color-bg-dark)] text-white text-[10px] p-2 rounded border border-white/10 hover:border-white/30 transition-colors resize-none custom-scrollbar focus:outline-none focus:border-[var(--color-accent-gold)]/50"
-                          rows={2}
-                        />
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-
           {/* Sessions List */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}
-            className="lg:col-span-2 h-[400px] lg:h-full glass-panel rounded-2xl flex flex-col overflow-hidden"
+            className="lg:col-span-1 h-[400px] lg:h-full glass-panel rounded-2xl flex flex-col overflow-hidden"
           >
             <div className="p-4 border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/20 flex justify-between items-center">
               <h2 className="font-bold text-white flex items-center gap-2">
@@ -628,191 +582,204 @@ export default function AdminPanel() {
           {/* Chat Area */}
           <motion.div 
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
-            className="lg:col-span-3 h-[500px] lg:h-full glass-panel rounded-2xl flex flex-col overflow-hidden relative"
+            className="lg:col-span-2 h-[500px] lg:h-full glass-panel rounded-2xl flex flex-row overflow-hidden relative"
           >
             {selectedSession ? (
               <>
-                {/* Chat Header */}
-                <div className="p-4 border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/20 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] flex items-center justify-center text-[var(--color-bg-dark)] font-bold text-xl shadow-[0_0_10px_rgba(212,175,55,0.3)]">
-                      {selectedSession.name.charAt(0).toUpperCase()}
+                {/* Main Chat Section */}
+                <div className="flex-1 flex flex-col h-full relative">
+                  {/* Chat Header */}
+                  <div className="p-4 border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/20 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] flex items-center justify-center text-[var(--color-bg-dark)] font-bold text-xl shadow-[0_0_10px_rgba(212,175,55,0.3)]">
+                        {selectedSession.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="overflow-hidden">
+                        <h2 className="font-bold text-white text-lg leading-tight truncate">{selectedSession.name}</h2>
+                        <div className="text-sm text-[var(--color-accent-gold)]/80 truncate">{selectedSession.email} • {selectedSession.phone}</div>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className="font-bold text-white text-lg leading-tight">{selectedSession.name}</h2>
-                      <div className="text-sm text-[var(--color-accent-gold)]/80">{selectedSession.email} • {selectedSession.phone}</div>
+                    
+                    {/* Admin Controls */}
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+                      <div className="relative hidden sm:block">
+                        <select
+                          value={selectedSession.status || 'active'}
+                          onChange={(e) => updateSessionStatus(selectedSession.id, e.target.value)}
+                          className={`appearance-none pl-3 pr-8 py-1.5 rounded-full text-xs font-bold border outline-none cursor-pointer transition-colors ${
+                            ['active', 'ongoing'].includes(selectedSession.status || 'active') ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20' :
+                            selectedSession.status === 'done' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20' :
+                            selectedSession.status === 'email_transferred' ? 'bg-purple-500/10 text-purple-400 border-purple-500/30 hover:bg-purple-500/20' :
+                            'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20'
+                          }`}
+                        >
+                          <option value="active" className="bg-[var(--color-bg-dark)] text-white">🟢 Active</option>
+                          <option value="ongoing" className="bg-[var(--color-bg-dark)] text-white">🔵 Ongoing</option>
+                          <option value="done" className="bg-[var(--color-bg-dark)] text-white">✓ Done</option>
+                          <option value="cancelled" className="bg-[var(--color-bg-dark)] text-white">✕ Cancelled</option>
+                          <option value="spam" className="bg-[var(--color-bg-dark)] text-white">⚠️ Spam</option>
+                        </select>
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <svg className="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                      </div>
+
+                      <div className="w-px h-6 bg-[var(--color-accent-gold)]/20 mx-1 hidden sm:block"></div>
+                      
+                      <button 
+                        onClick={() => requestPhone(selectedSession.id)}
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-[var(--color-accent-gold)] hover:bg-[var(--color-accent-gold)]/10 rounded-lg transition-colors"
+                        title="Request Phone Number"
+                      >
+                        <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </button>
+                      <button 
+                        onClick={() => confirmSendEmailTranscript(selectedSession)}
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-[var(--color-accent-gold)] hover:bg-[var(--color-accent-gold)]/10 rounded-lg transition-colors"
+                        title="Send Transcript"
+                      >
+                        <Mail className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </button>
+                      <button 
+                        onClick={() => confirmDeleteSession(selectedSession.id)}
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                        title="Delete Session"
+                      >
+                        <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </button>
                     </div>
                   </div>
                   
-                  {/* Admin Controls */}
-                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
-                    <div className="relative">
-                      <select
-                        value={selectedSession.status || 'active'}
-                        onChange={(e) => updateSessionStatus(selectedSession.id, e.target.value)}
-                        className={`appearance-none pl-3 pr-8 py-1.5 rounded-full text-xs font-bold border outline-none cursor-pointer transition-colors ${
-                          ['active', 'ongoing'].includes(selectedSession.status || 'active') ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20' :
-                          selectedSession.status === 'done' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20' :
-                          selectedSession.status === 'email_transferred' ? 'bg-purple-500/10 text-purple-400 border-purple-500/30 hover:bg-purple-500/20' :
-                          'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20'
-                        }`}
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[var(--color-bg-dark)]/20 custom-scrollbar">
+                    {messages.length === 0 && (
+                      <div className="text-center text-gray-500 text-sm mt-4">
+                        Communication channel open. Waiting for messages.
+                      </div>
+                    )}
+                    <AnimatePresence>
+                    {messages.map((msg: any) => (
+                      <motion.div 
+                        key={msg.id} 
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        className={`flex ${msg.senderId === 'admin' ? 'justify-end' : msg.senderId === 'system' ? 'justify-center' : 'justify-start'}`}
                       >
-                        <option value="active" className="bg-[var(--color-bg-dark)] text-white">🟢 Active</option>
-                        <option value="ongoing" className="bg-[var(--color-bg-dark)] text-white">🔵 Ongoing</option>
-                        <option value="done" className="bg-[var(--color-bg-dark)] text-white">✓ Done</option>
-                        <option value="cancelled" className="bg-[var(--color-bg-dark)] text-white">✕ Cancelled</option>
-                        <option value="spam" className="bg-[var(--color-bg-dark)] text-white">⚠️ Spam</option>
-                      </select>
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                        <svg className="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                        {msg.senderId === 'system' ? (
+                          <div className="bg-[var(--color-accent-navy-light)]/40 backdrop-blur-md text-[var(--color-accent-gold)] text-xs py-2 px-4 rounded-full border border-[var(--color-accent-gold)]/20 text-center max-w-[80%] shadow-sm">
+                            {msg.text}
+                          </div>
+                        ) : (
+                          <div className={`max-w-[75%] p-4 rounded-2xl text-sm shadow-md backdrop-blur-md ${
+                            msg.senderId === 'admin' 
+                              ? 'bg-gradient-to-br from-[var(--color-accent-navy-light)]/90 to-[var(--color-bg-card)]/90 text-white rounded-tr-sm border border-[var(--color-accent-gold)]/30 shadow-[0_4px_15px_rgba(0,0,0,0.2)]' 
+                              : 'bg-gradient-to-br from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] text-[var(--color-bg-dark)] rounded-tl-sm font-medium shadow-[0_4px_15px_rgba(212,175,55,0.2)]'
+                          }`}>
+                            {msg.senderId === 'admin' && (
+                              <div className="text-[10px] font-bold text-[var(--color-accent-gold)] mb-1 uppercase tracking-wider">
+                                {msg.senderName}
+                              </div>
+                            )}
+                            {msg.text}
+                            <div className={`text-[10px] mt-2 text-right ${
+                              msg.senderId === 'admin' ? 'text-gray-400' : 'text-[var(--color-bg-dark)]/70'
+                            }`}>
+                              {msg.timestamp?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    ))}
+                    </AnimatePresence>
+                    
+                    {selectedSession?.visitorTyping && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className="flex justify-start"
+                      >
+                        <div className="bg-gradient-to-br from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] text-[var(--color-bg-dark)] rounded-2xl rounded-tl-sm p-4 shadow-md backdrop-blur-md flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 bg-[var(--color-bg-dark)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                          <div className="w-1.5 h-1.5 bg-[var(--color-bg-dark)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                          <div className="w-1.5 h-1.5 bg-[var(--color-bg-dark)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        </div>
+                      </motion.div>
+                    )}
+                    
+                    <div ref={messagesEndRef} />
+                  </div>
+                  
+                  {/* Input Area */}
+                  <div className="p-4 border-t border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/20 backdrop-blur-md">
+                    <div className="relative flex items-center">
+                      <input 
+                        type="text" 
+                        value={reply} 
+                        onChange={e => {
+                          setReply(e.target.value);
+                          handleTyping();
+                        }}
+                        className="w-full glass-input rounded-full py-3 pl-5 pr-14 text-white text-sm outline-none transition-all placeholder-gray-500"
+                        placeholder={`Type your reply as ${adminName}...`}
+                        onKeyDown={e => { if(e.key === 'Enter') sendReply(); }}
+                      />
+                      <button 
+                        onClick={sendReply} 
+                        disabled={!reply.trim()}
+                        className="absolute right-2 bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] p-2 rounded-full text-[var(--color-bg-dark)] hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_10px_rgba(212,175,55,0.3)]"
+                      >
+                        <Send className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pinned Info Area (Collapsible Right Sidebar) */}
+                <div className={`h-full border-l border-[var(--color-accent-gold)]/20 flex flex-col transition-all duration-300 bg-[var(--color-bg-dark)]/40 ${isPinnedOpen ? 'w-64' : 'w-12'}`}>
+                  <div 
+                    className={`p-4 border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/20 flex items-center cursor-pointer h-[81px] ${!isPinnedOpen ? 'justify-center' : 'justify-between'}`} 
+                    onClick={() => setIsPinnedOpen(!isPinnedOpen)}
+                  >
+                    {isPinnedOpen ? (
+                      <h2 className="font-bold text-white flex items-center gap-2 whitespace-nowrap">
+                        <Pin className="w-4 h-4 text-[var(--color-accent-gold)]" />
+                        Pinned Info
+                      </h2>
+                    ) : (
+                      <Pin className="w-5 h-5 text-[var(--color-accent-gold)]" />
+                    )}
+                  </div>
+                  {isPinnedOpen && (
+                    <div className="flex-1 p-4 flex flex-col w-full overflow-hidden">
+                      <p className="text-xs text-gray-400 mb-2">Save important details like address, phone, or specific requests here. Only visible to admins.</p>
+                      <textarea
+                        value={pinnedNotes}
+                        onChange={(e) => setPinnedNotes(e.target.value)}
+                        onBlur={saveNotes}
+                        placeholder="Add notes here..."
+                        className="flex-1 w-full glass-input rounded-xl p-3 text-white text-sm outline-none transition-all placeholder-gray-500 resize-none custom-scrollbar"
+                      />
+                      <div className="mt-3 flex justify-end">
+                        <button 
+                          onClick={saveNotes}
+                          className="bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] text-[var(--color-bg-dark)] font-bold py-1.5 px-4 rounded-lg text-sm hover:scale-105 transition-transform shadow-[0_0_10px_rgba(212,175,55,0.3)]"
+                        >
+                          Save Notes
+                        </button>
                       </div>
                     </div>
-
-                    <div className="w-px h-6 bg-[var(--color-accent-gold)]/20 mx-1"></div>
-                    
-                    <button 
-                      onClick={() => requestPhone(selectedSession.id)}
-                      className="p-1.5 sm:p-2 text-gray-400 hover:text-[var(--color-accent-gold)] hover:bg-[var(--color-accent-gold)]/10 rounded-lg transition-colors"
-                      title="Request Phone Number"
-                    >
-                      <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
-                    <button 
-                      onClick={() => confirmSendEmailTranscript(selectedSession)}
-                      className="p-1.5 sm:p-2 text-gray-400 hover:text-[var(--color-accent-gold)] hover:bg-[var(--color-accent-gold)]/10 rounded-lg transition-colors"
-                      title="Send Transcript"
-                    >
-                      <Mail className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
-                    <button 
-                      onClick={() => confirmDeleteSession(selectedSession.id)}
-                      className="p-1.5 sm:p-2 text-gray-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-                      title="Delete Session"
-                    >
-                      <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[var(--color-bg-dark)]/20 custom-scrollbar">
-                  {messages.length === 0 && (
-                    <div className="text-center text-gray-500 text-sm mt-4">
-                      Communication channel open. Waiting for messages.
-                    </div>
                   )}
-                  <AnimatePresence>
-                  {messages.map((msg: any) => (
-                    <motion.div 
-                      key={msg.id} 
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      className={`flex ${msg.senderId === 'admin' ? 'justify-end' : msg.senderId === 'system' ? 'justify-center' : 'justify-start'}`}
-                    >
-                      {msg.senderId === 'system' ? (
-                        <div className="bg-[var(--color-accent-navy-light)]/40 backdrop-blur-md text-[var(--color-accent-gold)] text-xs py-2 px-4 rounded-full border border-[var(--color-accent-gold)]/20 text-center max-w-[80%] shadow-sm">
-                          {msg.text}
-                        </div>
-                      ) : (
-                        <div className={`max-w-[75%] p-4 rounded-2xl text-sm shadow-md backdrop-blur-md ${
-                          msg.senderId === 'admin' 
-                            ? 'bg-gradient-to-br from-[var(--color-accent-navy-light)]/90 to-[var(--color-bg-card)]/90 text-white rounded-tr-sm border border-[var(--color-accent-gold)]/30 shadow-[0_4px_15px_rgba(0,0,0,0.2)]' 
-                            : 'bg-gradient-to-br from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] text-[var(--color-bg-dark)] rounded-tl-sm font-medium shadow-[0_4px_15px_rgba(212,175,55,0.2)]'
-                        }`}>
-                          {msg.senderId === 'admin' && (
-                            <div className="text-[10px] font-bold text-[var(--color-accent-gold)] mb-1 uppercase tracking-wider">
-                              {msg.senderName}
-                            </div>
-                          )}
-                          {msg.text}
-                          <div className={`text-[10px] mt-2 text-right ${
-                            msg.senderId === 'admin' ? 'text-gray-400' : 'text-[var(--color-bg-dark)]/70'
-                          }`}>
-                            {msg.timestamp?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  ))}
-                  </AnimatePresence>
-                  <div ref={messagesEndRef} />
-                </div>
-                
-                {/* Input Area */}
-                <div className="p-4 border-t border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/20 backdrop-blur-md">
-                  <div className="relative flex items-center">
-                    <input 
-                      type="text" 
-                      value={reply} 
-                      onChange={e => setReply(e.target.value)}
-                      className="w-full glass-input rounded-full py-3 pl-5 pr-14 text-white text-sm outline-none transition-all placeholder-gray-500"
-                      placeholder={`Type your reply as ${adminName}...`}
-                      onKeyDown={e => { if(e.key === 'Enter') sendReply(); }}
-                    />
-                    <button 
-                      onClick={sendReply} 
-                      disabled={!reply.trim()}
-                      className="absolute right-2 bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] p-2 rounded-full text-[var(--color-bg-dark)] hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_10px_rgba(212,175,55,0.3)]"
-                    >
-                      <Send className="w-5 h-5" />
-                    </button>
-                  </div>
                 </div>
               </>
             ) : (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex flex-col items-center justify-center text-gray-500 bg-[var(--color-bg-dark)]/10">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex flex-col items-center justify-center text-gray-500 bg-[var(--color-bg-dark)]/10 w-full">
                 <div className="w-24 h-24 bg-[var(--color-accent-navy-light)]/30 rounded-full flex items-center justify-center mb-6 border border-[var(--color-accent-gold)]/10 shadow-inner">
                   <MessageCircle className="w-12 h-12 text-[var(--color-accent-gold)]/50" />
                 </div>
                 <p className="text-xl font-medium text-white mb-2">Select a Communication Channel</p>
                 <p className="text-sm text-gray-400">Choose an active session from the sidebar to begin.</p>
               </motion.div>
-            )}
-          </motion.div>
-
-          {/* Pinned Info Area */}
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
-            className={`lg:col-span-1 h-auto lg:h-full glass-panel rounded-2xl flex flex-col overflow-hidden transition-all duration-300 ${!selectedSession ? 'hidden' : ''} ${isPinnedOpen ? 'w-full' : 'w-16 items-center'}`}
-          >
-            <div className={`p-4 border-b border-[var(--color-accent-gold)]/20 bg-[var(--color-accent-navy-light)]/20 flex justify-between items-center cursor-pointer w-full ${!isPinnedOpen ? 'justify-center' : ''}`} onClick={() => setIsPinnedOpen(!isPinnedOpen)}>
-              {isPinnedOpen ? (
-                <h2 className="font-bold text-white flex items-center gap-2">
-                  <Pin className="w-4 h-4 text-[var(--color-accent-gold)]" />
-                  Pinned Info
-                </h2>
-              ) : (
-                <Pin className="w-6 h-6 text-[var(--color-accent-gold)]" />
-              )}
-            </div>
-            {isPinnedOpen && (
-              <div className="flex-1 p-4 flex flex-col bg-[var(--color-bg-dark)]/20 w-full">
-                {selectedSession ? (
-                  <>
-                    <p className="text-xs text-gray-400 mb-2">Save important details like address, phone, or specific requests here. Only visible to admins.</p>
-                    <textarea
-                      value={pinnedNotes}
-                      onChange={(e) => setPinnedNotes(e.target.value)}
-                      onBlur={saveNotes}
-                      placeholder="Add notes here..."
-                      className="flex-1 w-full glass-input rounded-xl p-3 text-white text-sm outline-none transition-all placeholder-gray-500 resize-none custom-scrollbar"
-                    />
-                    <div className="mt-3 flex justify-end">
-                      <button 
-                        onClick={saveNotes}
-                        className="bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] text-[var(--color-bg-dark)] font-bold py-1.5 px-4 rounded-lg text-sm hover:scale-105 transition-transform shadow-[0_0_10px_rgba(212,175,55,0.3)]"
-                      >
-                        Save Notes
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-gray-500 text-sm text-center">
-                    <Pin className="w-8 h-8 text-gray-600 mb-2 opacity-50" />
-                    <p>Select a session to view or add pinned notes.</p>
-                  </div>
-                )}
-              </div>
             )}
           </motion.div>
         </div>

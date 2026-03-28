@@ -279,8 +279,6 @@ export default function LiveChat() {
     }
   };
 
-  if (!isAdminOnline) return null;
-
   return (
     <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 font-sans flex flex-col items-end">
       <AnimatePresence>
@@ -290,7 +288,7 @@ export default function LiveChat() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="mb-4 w-[calc(100vw-2rem)] sm:w-[380px] h-[500px] max-h-[calc(100vh-8rem)] glass-panel rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-[var(--color-accent-gold)]/30"
+            className="mb-4 w-[calc(100vw-2rem)] sm:w-[380px] h-[500px] max-h-[calc(100dvh-100px)] glass-panel rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-[var(--color-accent-gold)]/30"
           >
             {/* Header */}
             <div className="bg-gradient-to-r from-[var(--color-accent-navy-light)]/80 to-[var(--color-bg-dark)]/80 backdrop-blur-md p-4 flex justify-between items-center shadow-md z-10 border-b border-[var(--color-accent-gold)]/20 relative overflow-hidden">
@@ -298,11 +296,13 @@ export default function LiveChat() {
               <div className="flex items-center gap-3 relative z-10">
                 <div className="w-10 h-10 rounded-full bg-[var(--color-accent-gold)]/20 flex items-center justify-center relative border border-[var(--color-accent-gold)]/50 shadow-[0_0_10px_rgba(212,175,55,0.2)]">
                   <User className="w-6 h-6 text-[var(--color-accent-gold)]" />
-                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-[var(--color-bg-card)] rounded-full shadow-[0_0_5px_rgba(74,222,128,0.5)]"></div>
+                  <div className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-[var(--color-bg-card)] rounded-full ${isAdminOnline ? 'bg-green-400 shadow-[0_0_5px_rgba(74,222,128,0.5)]' : 'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]'}`}></div>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-white font-bold text-lg leading-tight">Live Support</span>
-                  <span className="text-[var(--color-accent-gold)]/80 text-xs font-medium">We typically reply in minutes</span>
+                  <span className="text-[var(--color-accent-gold)]/80 text-xs font-medium">
+                    {isAdminOnline ? 'We typically reply in minutes' : 'Offline - Leave a message'}
+                  </span>
                 </div>
               </div>
               <div className="flex items-center gap-2 relative z-10">
@@ -378,7 +378,7 @@ export default function LiveChat() {
             ) : (
               <motion.div 
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="flex flex-col h-full bg-[var(--color-bg-dark)]/30 backdrop-blur-sm relative"
+                className="flex flex-col flex-1 bg-[var(--color-bg-dark)]/30 backdrop-blur-sm relative overflow-hidden"
               >
                 {phoneRequested && !visitorPhone && (
                   <div className="absolute inset-0 z-50 bg-[var(--color-bg-dark)]/95 backdrop-blur-md flex flex-col items-center justify-center p-6 rounded-b-2xl">
@@ -511,6 +511,16 @@ export default function LiveChat() {
         onClick={() => setIsOpen(!isOpen)}
         className="bg-gradient-to-r from-[var(--color-accent-gold)] to-[var(--color-accent-gold-dark)] p-4 rounded-full shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:shadow-[0_0_30px_rgba(212,175,55,0.6)] transition-shadow duration-300 border border-[var(--color-accent-gold-light)]/50 z-50 relative group"
       >
+        <div className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 z-20">
+          {isAdminOnline ? (
+            <>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-green-500 border-2 border-[#050B14]"></span>
+            </>
+          ) : (
+            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500 border-2 border-[#050B14]"></span>
+          )}
+        </div>
         {/* Pulse effect behind button */}
         {!isOpen && (
           <>

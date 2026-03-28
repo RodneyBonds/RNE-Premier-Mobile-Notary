@@ -236,6 +236,16 @@ export default function Contact() {
                     disabled={!isAdminOnline}
                     className={`flex-1 font-semibold px-8 py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-accent-gold/50 ${!isAdminOnline ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
+                    <div className="relative flex items-center justify-center w-3 h-3 mr-1">
+                      {isAdminOnline ? (
+                        <>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]"></span>
+                        </>
+                      ) : (
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
+                      )}
+                    </div>
                     <MessageCircle className="w-5 h-5" />
                     {isAdminOnline ? 'LIVE CHAT' : 'LIVE CHAT OFFLINE'}
                   </button>

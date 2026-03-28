@@ -19,9 +19,7 @@ export default function LiveChat() {
   const [visitorPhone, setVisitorPhone] = useState('');
   const [tempPhone, setTempPhone] = useState('');
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
-  const [sessionStatus, setSessionStatus] = useState('active');
   const messagesEndRef = useRef(null);
-  const notificationIntervalRef = useRef(null);
 
   useEffect(() => {
     const savedSessionId = localStorage.getItem('chatSessionId');
@@ -77,7 +75,6 @@ export default function LiveChat() {
             setPhoneRequested(data.phoneRequested || false);
             setVisitorPhone(data.phone || '');
             setHasUnreadMessages(data.hasUnreadMessages || false);
-            setSessionStatus(data.status || 'active');
           }
         }
       });
@@ -99,37 +96,6 @@ export default function LiveChat() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  useEffect(() => {
-    const isFinished = ['Done', 'Cancelled', 'Spam'].includes(sessionStatus);
-    if (hasUnreadMessages && sessionId && !isFinished) {
-      notificationIntervalRef.current = setInterval(async () => {
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage) {
-          fetch('/api/notify-admin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: formData.name,
-              email: formData.email,
-              message: lastMessage.text,
-              type: 'unanswered'
-            })
-          }).catch(e => console.error('Failed to send hourly notification', e));
-        }
-      }, 3600000); // 1 hour
-    } else {
-      if (notificationIntervalRef.current) {
-        clearInterval(notificationIntervalRef.current);
-        notificationIntervalRef.current = null;
-      }
-    }
-    return () => {
-      if (notificationIntervalRef.current) {
-        clearInterval(notificationIntervalRef.current);
-      }
-    };
-  }, [hasUnreadMessages, sessionId, messages, formData.name, formData.email, sessionStatus]);
 
   const submitPhone = async (e) => {
     e.preventDefault();
@@ -162,7 +128,8 @@ export default function LiveChat() {
       const sessionRef = await addDoc(collection(db, 'chatSessions'), {
         ...formData,
         status: 'active',
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        lastNotificationAt: serverTimestamp()
       });
       setSessionId(sessionRef.id);
       setChatStarted(true);

@@ -4,11 +4,52 @@ import path from "path";
 import dotenv from "dotenv";
 import cors from "cors";
 import { Resend } from "resend";
+import admin from "firebase-admin";
 
 dotenv.config();
 
+// Initialize Firebase Admin
+admin.initializeApp({
+  credential: admin.credential.applicationDefault(),
+});
+const db = admin.firestore();
+
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Hourly notification check
+setInterval(async () => {
+  try {
+    const sessions = await db.collection('chatSessions')
+      .where('status', '==', 'active')
+      .where('hasUnreadMessages', '==', true)
+      .get();
+    
+    const now = Date.now();
+    for (const doc of sessions.docs) {
+      const data = doc.data();
+      const lastNotificationAt = data.lastNotificationAt?.toMillis() || 0;
+      if (now - lastNotificationAt >= 3600000) { // 1 hour
+        const fromEmail = process.env.RESEND_FROM_EMAIL || 'rodney@rnepremiermobilenotary.com';
+        
+        await resend.emails.send({
+          from: fromEmail,
+          to: ['rodneyrnepremiermobilenotary@gmail.com'],
+          subject: `Unanswered Contact from ${data.name} - RNE Premier Mobile Notary`,
+          html: `
+            <h2>Unanswered Message in Live Chat</h2>
+            <p><strong>Visitor:</strong> ${data.name} (${data.email})</p>
+            <p><strong>Message:</strong> This message has been unanswered for a while. Log in to the Admin Panel to reply.</p>
+          `,
+        });
+        
+        await doc.ref.update({ lastNotificationAt: admin.firestore.FieldValue.serverTimestamp() });
+      }
+    }
+  } catch (error) {
+    console.error("Error in hourly notification check:", error);
+  }
+}, 60000); // Check every minute
 
 async function startServer() {
   console.log("Starting server...");

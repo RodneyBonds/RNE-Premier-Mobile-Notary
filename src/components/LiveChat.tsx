@@ -176,8 +176,10 @@ export default function LiveChat() {
           await updateDoc(sessionRef, {
             status: 'active',
             updatedAt: serverTimestamp(),
-            hasUnreadMessages: true
+            hasUnreadMessages: true,
+            visitorTyping: false
           });
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
           
           // Always send a notification immediately when a new message is received
           fetch('/api/notify-admin', {
